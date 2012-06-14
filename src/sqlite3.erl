@@ -1029,20 +1029,7 @@ do_sql_bind_and_exec(SQL, Params, #state{port = Port}) ->
 
 do_sql_exec_script(SQL, #state{port = Port}) ->
     ?dbgF("SQL: ~s~n", [SQL]),
-    Results = exec(Port, {sql_exec_script, SQL}),
-    %% last element of Results may be an error
-    case Results of
-        [_|_] ->
-            case lists:last(Results) of
-                {error, _Code, Reason} ->
-                    error_logger:error_msg("sqlite3 driver error: ~s~n",
-                                           [Reason]);
-                _ -> ok
-            end;
-        _ ->
-            ok
-    end,
-    Results.
+    exec(Port, {sql_exec_script, SQL}).
 
 exec(_Port, {create_function, _FunctionName, _Function}) ->
     error_logger:error_report([{application, sqlite3}, "NOT IMPL YET"]);
@@ -1080,24 +1067,10 @@ exec(Port, {Cmd, Index}) when is_integer(Index) ->
 wait_result(Port) ->
     receive
         {Port, Reply} ->
-            case Reply of
-                {error, Code, Reason} ->
-                    error_logger:error_msg("sqlite3 driver error: ~s~n",
-                                           [Reason]),
-                    % ?dbg("Error: ~p~n", [Reason]),
-                    {error, Code, Reason};
-                _ ->
-                    % ?dbg("Reply: ~p~n", [Reply]),
-                    Reply
-            end;
+            Reply;
         {'EXIT', Port, Reason} ->
-            error_logger:error_msg("sqlite3 driver port closed with reason ~p~n",
-                                   [Reason]),
-            % ?dbg("Error: ~p~n", [Reason]),
             {error, Reason};
         Other when is_tuple(Other), element(1, Other) =/= '$gen_call', element(1, Other) =/= '$gen_cast' ->
-            error_logger:error_msg("sqlite3 unexpected reply ~p~n",
-                                   [Other]),
             Other
     end.
 
