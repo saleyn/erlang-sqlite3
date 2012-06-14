@@ -10,7 +10,7 @@
 %%%-------------------------------------------------------------------
 -module(sqlite3).
 -include("sqlite3.hrl").
--export_types([sql_value/0, sql_type/0, table_info/0, sqlite_error/0, 
+-export_types([sql_value/0, sql_type/0, table_info/0, sqlite_error/0,
                sql_params/0, sql_non_query_result/0, sql_result/0]).
 
 -behaviour(gen_server).
@@ -19,8 +19,8 @@
 -export([open/1, open/2]).
 -export([start_link/1, start_link/2]).
 -export([stop/0, close/1, close_timeout/2]).
--export([sql_exec/1, sql_exec/2, sql_exec_timeout/3, 
-         sql_exec_script/2, sql_exec_script_timeout/3, 
+-export([sql_exec/1, sql_exec/2, sql_exec_timeout/3,
+         sql_exec_script/2, sql_exec_script_timeout/3,
          sql_exec/3, sql_exec_timeout/4]).
 -export([prepare/2, bind/3, next/2, reset/2, clear_bindings/2, finalize/2,
          columns/2, prepare_timeout/3, bind_timeout/4, next_timeout/3,
@@ -28,12 +28,12 @@
          columns_timeout/3]).
 -export([create_table/2, create_table/3, create_table/4, create_table_timeout/4,
          create_table_timeout/5]).
--export([list_tables/0, list_tables/1, list_tables_timeout/2, 
+-export([list_tables/0, list_tables/1, list_tables_timeout/2,
          table_info/1, table_info/2, table_info_timeout/3]).
 -export([write/2, write/3, write_timeout/4, write_many/2, write_many/3,
          write_many_timeout/4]).
 -export([update/3, update/4, update_timeout/5]).
--export([read_all/2, read_all/3, read_all_timeout/3, read_all_timeout/4, 
+-export([read_all/2, read_all/3, read_all_timeout/3, read_all_timeout/4,
          read/2, read/3, read/4, read_timeout/4, read_timeout/5]).
 -export([delete/2, delete/3, delete_timeout/4]).
 -export([drop_table/1, drop_table/2, drop_table_timeout/3]).
@@ -54,8 +54,8 @@
 %% API
 %%====================================================================
 %%--------------------------------------------------------------------
-%% @doc 
-%%   Opens the sqlite3 database in file Db.db in the working directory 
+%% @doc
+%%   Opens the sqlite3 database in file Db.db in the working directory
 %%   (creating this file if necessary). This is the same as open/1.
 %% @end
 %%--------------------------------------------------------------------
@@ -67,12 +67,12 @@ start_link(Db) ->
     open(Db, []).
 
 %%--------------------------------------------------------------------
-%% @doc 
-%%   Opens a sqlite3 database creating one if necessary. By default the 
-%%   database will be called Db.db in the current path. This can be changed 
-%%   by passing the option {file, DbFile :: String()}. DbFile must be the 
-%%   full path to the sqlite3 db file. start_link/1 can be use with stop/0, 
-%%   sql_exec/1, create_table/2, list_tables/0, table_info/1, write/2, 
+%% @doc
+%%   Opens a sqlite3 database creating one if necessary. By default the
+%%   database will be called Db.db in the current path. This can be changed
+%%   by passing the option {file, DbFile :: String()}. DbFile must be the
+%%   full path to the sqlite3 db file. start_link/1 can be use with stop/0,
+%%   sql_exec/1, create_table/2, list_tables/0, table_info/1, write/2,
 %%   read/2, delete/2 and drop_table/1. This is the same as open/2.
 %% @end
 %%--------------------------------------------------------------------
@@ -82,7 +82,7 @@ start_link(Db, Options) ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%%   Opens the sqlite3 database in file Db.db in the working directory 
+%%   Opens the sqlite3 database in file Db.db in the working directory
 %%   (creating this file if necessary). This is the same as open/1.
 %% @end
 %%--------------------------------------------------------------------
@@ -93,7 +93,7 @@ open(Db) ->
 %%--------------------------------------------------------------------
 %% @spec open(Db :: atom(), Options :: [option()]) -> {ok, Pid :: pid()} | ignore | {error, Error}
 %% @type option() = {file, DbFile :: string()} | in_memory | temporary
-%%   
+%%
 %% @doc
 %%   Opens a sqlite3 database creating one if necessary. By default the database
 %%   will be called Db.db in the current path. This can be changed by
@@ -109,18 +109,18 @@ open(Db, Options) ->
     Opts = case proplists:lookup(file, Options) of
                none ->
                    DbName = case proplists:is_defined(temporary, Options) of
-                                true -> 
+                                true ->
                                     "";
                                 false ->
                                     case proplists:is_defined(in_memory, Options) of
-                                        true -> 
+                                        true ->
                                             ":memory:";
                                         false ->
                                             "./" ++ atom_to_list(Db) ++ ".db"
                                     end
                             end,
                    [{file, DbName} | Options];
-               {file, _} -> 
+               {file, _} ->
                    Options
            end,
     gen_server:start_link({local, Db}, ?MODULE, Opts, []).
@@ -173,11 +173,11 @@ sql_exec(Db, SQL) ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%%   Executes the Sql statement with parameters Params directly on the Db 
+%%   Executes the Sql statement with parameters Params directly on the Db
 %%   database. Returns the result of the Sql call.
 %% @end
 %%--------------------------------------------------------------------
--spec sql_exec(atom(), iodata(), [sql_value() | {atom() | string() | integer(), sql_value()}]) -> 
+-spec sql_exec(atom(), iodata(), [sql_value() | {atom() | string() | integer(), sql_value()}]) ->
        sql_result().
 sql_exec(Db, SQL, Params) ->
     gen_server:call(Db, {sql_bind_and_exec, SQL, Params}).
@@ -194,19 +194,19 @@ sql_exec_timeout(Db, SQL, Timeout) ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%%   Executes the Sql statement with parameters Params directly on the Db 
+%%   Executes the Sql statement with parameters Params directly on the Db
 %%   database. Returns the result of the Sql call.
 %% @end
 %%--------------------------------------------------------------------
--spec sql_exec_timeout(atom(), iodata(), [sql_value() | {atom() | string() | integer(), sql_value()}], timeout()) -> 
+-spec sql_exec_timeout(atom(), iodata(), [sql_value() | {atom() | string() | integer(), sql_value()}], timeout()) ->
        sql_result().
 sql_exec_timeout(Db, SQL, Params, Timeout) ->
     gen_server:call(Db, {sql_bind_and_exec, SQL, Params}, Timeout).
 
 %%--------------------------------------------------------------------
 %% @doc
-%%   Executes the Sql script (consisting of semicolon-separated statements) 
-%%   directly on the Db database. 
+%%   Executes the Sql script (consisting of semicolon-separated statements)
+%%   directly on the Db database.
 %%
 %%   If an error happens while executing a statement, no further statements are executed.
 %%
@@ -219,7 +219,7 @@ sql_exec_script(Db, SQL) ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%%   Executes the Sql script (consisting of semicolon-separated statements) 
+%%   Executes the Sql script (consisting of semicolon-separated statements)
 %%   directly on the Db database.
 %%
 %%   If an error happens while executing a statement, no further statements are executed.
@@ -302,8 +302,8 @@ create_table(Tbl, Columns) ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%%   Creates the Tbl table in Db using Columns as the table structure. 
-%%   The table structure is a list of {column name, column type} pairs. 
+%%   Creates the Tbl table in Db using Columns as the table structure.
+%%   The table structure is a list of {column name, column type} pairs.
 %%   e.g. [{name, text}, {age, integer}]
 %%
 %%   Returns the result of the create table call.
@@ -315,8 +315,8 @@ create_table(Db, Tbl, Columns) ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%%   Creates the Tbl table in Db using Columns as the table structure. 
-%%   The table structure is a list of {column name, column type} pairs. 
+%%   Creates the Tbl table in Db using Columns as the table structure.
+%%   The table structure is a list of {column name, column type} pairs.
 %%   e.g. [{name, text}, {age, integer}]
 %%
 %%   Returns the result of the create table call.
@@ -329,14 +329,14 @@ create_table_timeout(Db, Tbl, Columns, Timeout) ->
 %%--------------------------------------------------------------------
 %% @doc
 %%   Creates the Tbl table in Db using Columns as the table structure and
-%%   Constraints as table constraints. 
-%%   The table structure is a list of {column name, column type} pairs. 
+%%   Constraints as table constraints.
+%%   The table structure is a list of {column name, column type} pairs.
 %%   e.g. [{name, text}, {age, integer}]
 %%
 %%   Returns the result of the create table call.
 %% @end
 %%--------------------------------------------------------------------
--spec create_table(atom(), table_id(), table_info(), table_constraints()) -> 
+-spec create_table(atom(), table_id(), table_info(), table_constraints()) ->
           sql_non_query_result().
 create_table(Db, Tbl, Columns, Constraints) ->
     gen_server:call(Db, {create_table, Tbl, Columns, Constraints}).
@@ -344,14 +344,14 @@ create_table(Db, Tbl, Columns, Constraints) ->
 %%--------------------------------------------------------------------
 %% @doc
 %%   Creates the Tbl table in Db using Columns as the table structure and
-%%   Constraints as table constraints. 
-%%   The table structure is a list of {column name, column type} pairs. 
+%%   Constraints as table constraints.
+%%   The table structure is a list of {column name, column type} pairs.
 %%   e.g. [{name, text}, {age, integer}]
 %%
 %%   Returns the result of the create table call.
 %% @end
 %%--------------------------------------------------------------------
--spec create_table_timeout(atom(), table_id(), table_info(), table_constraints(), timeout()) -> 
+-spec create_table_timeout(atom(), table_id(), table_info(), table_constraints(), timeout()) ->
           sql_non_query_result().
 create_table_timeout(Db, Tbl, Columns, Constraints, Timeout) ->
     gen_server:call(Db, {create_table, Tbl, Columns, Constraints}, Timeout).
@@ -412,7 +412,7 @@ table_info_timeout(Db, Tbl, Timeout) ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%%   Write Data into Tbl table. Value must be of the same type as 
+%%   Write Data into Tbl table. Value must be of the same type as
 %%   determined from table_info/2.
 %% @end
 %%--------------------------------------------------------------------
@@ -422,7 +422,7 @@ write(Tbl, Data) ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%%   Write Data into Tbl table in Db database. Value must be of the 
+%%   Write Data into Tbl table in Db database. Value must be of the
 %%   same type as determined from table_info/3.
 %% @end
 %%--------------------------------------------------------------------
@@ -432,18 +432,18 @@ write(Db, Tbl, Data) ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%%   Write Data into Tbl table in Db database. Value must be of the 
+%%   Write Data into Tbl table in Db database. Value must be of the
 %%   same type as determined from table_info/3.
 %% @end
 %%--------------------------------------------------------------------
--spec write_timeout(atom(), table_id(), [{column_id(), sql_value()}], timeout()) -> 
+-spec write_timeout(atom(), table_id(), [{column_id(), sql_value()}], timeout()) ->
 		  sql_non_query_result().
 write_timeout(Db, Tbl, Data, Timeout) ->
     gen_server:call(Db, {write, Tbl, Data}, Timeout).
 
 %%--------------------------------------------------------------------
 %% @doc
-%%   Write all records in Data into table Tbl. Value must be of the 
+%%   Write all records in Data into table Tbl. Value must be of the
 %%   same type as determined from table_info/2.
 %% @end
 %%--------------------------------------------------------------------
@@ -453,7 +453,7 @@ write_many(Tbl, Data) ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%%   Write all records in Data into table Tbl in database Db. Value 
+%%   Write all records in Data into table Tbl in database Db. Value
 %%   must be of the same type as determined from table_info/3.
 %% @end
 %%--------------------------------------------------------------------
@@ -463,11 +463,11 @@ write_many(Db, Tbl, Data) ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%%   Write all records in Data into table Tbl in database Db. Value 
+%%   Write all records in Data into table Tbl in database Db. Value
 %%   must be of the same type as determined from table_info/3.
 %% @end
 %%--------------------------------------------------------------------
--spec write_many_timeout(atom(), table_id(), [[{column_id(), sql_value()}]], timeout()) -> 
+-spec write_many_timeout(atom(), table_id(), [[{column_id(), sql_value()}]], timeout()) ->
 		  [sql_result()].
 write_many_timeout(Db, Tbl, Data, Timeout) ->
     gen_server:call(Db, {write_many, Tbl, Data}, Timeout).
@@ -478,7 +478,7 @@ write_many_timeout(Db, Tbl, Data, Timeout) ->
 %%    value in Key with Data.
 %% @end
 %%--------------------------------------------------------------------
--spec update(table_id(), {column_id(), sql_value()}, [{column_id(), sql_value()}]) -> 
+-spec update(table_id(), {column_id(), sql_value()}, [{column_id(), sql_value()}]) ->
 		  sql_non_query_result().
 update(Tbl, {Key, Value}, Data) ->
     update(?MODULE, Tbl, {Key, Value}, Data).
@@ -489,7 +489,7 @@ update(Tbl, {Key, Value}, Data) ->
 %%    matches the value in Key with Data.
 %% @end
 %%--------------------------------------------------------------------
--spec update(atom(), table_id(), {column_id(), sql_value()}, [{column_id(), sql_value()}]) -> 
+-spec update(atom(), table_id(), {column_id(), sql_value()}, [{column_id(), sql_value()}]) ->
           sql_non_query_result().
 update(Db, Tbl, {Key, Value}, Data) ->
   gen_server:call(Db, {update, Tbl, Key, Value, Data}).
@@ -500,7 +500,7 @@ update(Db, Tbl, {Key, Value}, Data) ->
 %%    matches the value in Key with Data.
 %% @end
 %%--------------------------------------------------------------------
--spec update_timeout(atom(), table_id(), {column_id(), sql_value()}, [{column_id(), sql_value()}], timeout()) -> 
+-spec update_timeout(atom(), table_id(), {column_id(), sql_value()}, [{column_id(), sql_value()}], timeout()) ->
           sql_non_query_result().
 update_timeout(Db, Tbl, {Key, Value}, Data, Timeout) ->
   gen_server:call(Db, {update, Tbl, Key, Value, Data}, Timeout).
@@ -543,8 +543,8 @@ read_all_timeout(Db, Tbl, Columns, Timeout) ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%%   Reads a row from Tbl table such that the Value matches the 
-%%   value in Column. Value must have the same type as determined 
+%%   Reads a row from Tbl table such that the Value matches the
+%%   value in Column. Value must have the same type as determined
 %%   from table_info/2.
 %% @end
 %%--------------------------------------------------------------------
@@ -554,8 +554,8 @@ read(Tbl, Key) ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%%   Reads a row from Tbl table in Db database such that the Value 
-%%   matches the value in Column. ColValue must have the same type 
+%%   Reads a row from Tbl table in Db database such that the Value
+%%   matches the value in Column. ColValue must have the same type
 %%   as determined from table_info/3.
 %% @end
 %%--------------------------------------------------------------------
@@ -566,7 +566,7 @@ read(Db, Tbl, {Column, Value}) ->
 %%--------------------------------------------------------------------
 %% @doc
 %%    Reads a row from Tbl table in Db database such that the Value
-%%    matches the value in Column. Value must have the same type as 
+%%    matches the value in Column. Value must have the same type as
 %%    determined from table_info/3.
 %% @end
 %%--------------------------------------------------------------------
@@ -576,8 +576,8 @@ read(Db, Tbl, {Key, Value}, Columns) ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%%   Reads a row from Tbl table in Db database such that the Value 
-%%   matches the value in Column. ColValue must have the same type 
+%%   Reads a row from Tbl table in Db database such that the Value
+%%   matches the value in Column. ColValue must have the same type
 %%   as determined from table_info/3.
 %% @end
 %%--------------------------------------------------------------------
@@ -588,7 +588,7 @@ read_timeout(Db, Tbl, {Column, Value}, Timeout) ->
 %%--------------------------------------------------------------------
 %% @doc
 %%    Reads a row from Tbl table in Db database such that the Value
-%%    matches the value in Column. Value must have the same type as 
+%%    matches the value in Column. Value must have the same type as
 %%    determined from table_info/3.
 %% @end
 %%--------------------------------------------------------------------
@@ -598,8 +598,8 @@ read_timeout(Db, Tbl, {Key, Value}, Columns, Timeout) ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%%   Delete a row from Tbl table in Db database such that the Value 
-%%   matches the value in Column. 
+%%   Delete a row from Tbl table in Db database such that the Value
+%%   matches the value in Column.
 %%   Value must have the same type as determined from table_info/3.
 %% @end
 %%--------------------------------------------------------------------
@@ -609,8 +609,8 @@ delete(Tbl, Key) ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%%   Delete a row from Tbl table in Db database such that the Value 
-%%   matches the value in Column. 
+%%   Delete a row from Tbl table in Db database such that the Value
+%%   matches the value in Column.
 %%   Value must have the same type as determined from table_info/3.
 %% @end
 %%--------------------------------------------------------------------
@@ -620,8 +620,8 @@ delete_timeout(Db, Tbl, Key, Timeout) ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%%   Delete a row from Tbl table in Db database such that the Value 
-%%   matches the value in Column. 
+%%   Delete a row from Tbl table in Db database such that the Value
+%%   matches the value in Column.
 %%   Value must have the same type as determined from table_info/3.
 %% @end
 %%--------------------------------------------------------------------
@@ -746,9 +746,9 @@ init(Options) ->
             {ok, #state{port = Port, ops = Options}};
         {error, permanent} -> %% already loaded!
             Port = open_port({spawn, create_port_cmd(DbFile)}, [binary]),
-            {ok, #state{port = Port, ops = Options}};            
+            {ok, #state{port = Port, ops = Options}};
         {error, Error} ->
-            Msg = io_lib:format("Error loading ~p: ~s", 
+            Msg = io_lib:format("Error loading ~p: ~s",
                                 [?DRIVER_NAME, erl_ddll:format_error(Error)]),
             {stop, lists:flatten(Msg)}
     end.
@@ -828,8 +828,8 @@ handle_call({write, Tbl, Data}, _From, State) ->
             {reply, {error, Exception}, State}
     end;
 handle_call({write_many, Tbl, DataList}, _From, State) ->
-    SQLScript = ["BEGIN;", 
-                 [sqlite3_lib:write_sql(Tbl, Data) || Data <- DataList], 
+    SQLScript = ["BEGIN;",
+                 [sqlite3_lib:write_sql(Tbl, Data) || Data <- DataList],
                  "COMMIT;"],
     Reply = do_sql_exec_script(SQLScript, State),
     {reply, Reply, State};
@@ -968,12 +968,12 @@ terminate(_Reason, #state{port = Port}) ->
             port_close(Port)
     end,
     case erl_ddll:unload(?DRIVER_NAME) of
-        ok -> 
+        ok ->
             ok;
         {error, permanent} ->
             ok; %% FIXME is this the correct behavior?
         {error, ErrorDesc} ->
-            error_logger:error_msg("Error unloading sqlite3 driver: ~s~n", 
+            error_logger:error_msg("Error unloading sqlite3 driver: ~s~n",
                                    [erl_ddll:format_error(ErrorDesc)])
     end,
     ok.
@@ -1035,7 +1035,7 @@ do_sql_exec_script(SQL, #state{port = Port}) ->
         [_|_] ->
             case lists:last(Results) of
                 {error, _Code, Reason} ->
-                    error_logger:error_msg("sqlite3 driver error: ~s~n", 
+                    error_logger:error_msg("sqlite3 driver error: ~s~n",
                                            [Reason]);
                 _ -> ok
             end;
@@ -1082,7 +1082,7 @@ wait_result(Port) ->
         {Port, Reply} ->
             case Reply of
                 {error, Code, Reason} ->
-                    error_logger:error_msg("sqlite3 driver error: ~s~n", 
+                    error_logger:error_msg("sqlite3 driver error: ~s~n",
                                            [Reason]),
                     % ?dbg("Error: ~p~n", [Reason]),
                     {error, Code, Reason};
@@ -1091,12 +1091,12 @@ wait_result(Port) ->
                     Reply
             end;
         {'EXIT', Port, Reason} ->
-            error_logger:error_msg("sqlite3 driver port closed with reason ~p~n", 
+            error_logger:error_msg("sqlite3 driver port closed with reason ~p~n",
                                    [Reason]),
             % ?dbg("Error: ~p~n", [Reason]),
             {error, Reason};
         Other when is_tuple(Other), element(1, Other) =/= '$gen_call', element(1, Other) =/= '$gen_cast' ->
-            error_logger:error_msg("sqlite3 unexpected reply ~p~n", 
+            error_logger:error_msg("sqlite3 unexpected reply ~p~n",
                                    [Other]),
             Other
     end.
@@ -1108,28 +1108,28 @@ parse_table_info(Info) ->
 	Rest1 = list_init(Rest),
     Cols = string:tokens(Rest1, ","),
     build_table_info(lists:map(fun(X) ->
-                         string:tokens(X, " ") 
+                         string:tokens(X, " ")
                      end, Cols), []).
-   
-build_table_info([], Acc) -> 
+
+build_table_info([], Acc) ->
     lists:reverse(Acc);
-build_table_info([[ColName, ColType] | Tl], Acc) -> 
-    build_table_info(Tl, [{list_to_atom(ColName), sqlite3_lib:col_type_to_atom(ColType)}| Acc]); 
+build_table_info([[ColName, ColType] | Tl], Acc) ->
+    build_table_info(Tl, [{list_to_atom(ColName), sqlite3_lib:col_type_to_atom(ColType)}| Acc]);
 build_table_info([[ColName, ColType | Constraints] | Tl], Acc) ->
     build_table_info(Tl, [{list_to_atom(ColName), sqlite3_lib:col_type_to_atom(ColType), build_constraints(Constraints)} | Acc]).
 
 %% TODO conflict-clause parsing
 build_constraints([]) -> [];
-build_constraints(["PRIMARY", "KEY" | Tail]) -> 
+build_constraints(["PRIMARY", "KEY" | Tail]) ->
     {Constraint, Rest} = build_primary_key_constraint(Tail),
     [Constraint | build_constraints(Rest)];
-build_constraints(["UNIQUE" | Tail]) -> 
+build_constraints(["UNIQUE" | Tail]) ->
 	[unique | build_constraints(Tail)];
-build_constraints(["NOT", "NULL" | Tail]) -> 
+build_constraints(["NOT", "NULL" | Tail]) ->
 	[not_null | build_constraints(Tail)];
-build_constraints(["DEFAULT", DefaultValue | Tail]) -> 
+build_constraints(["DEFAULT", DefaultValue | Tail]) ->
 	[{default, sqlite3_lib:sql_to_value(DefaultValue)} | build_constraints(Tail)];
-build_constraints(["CHECK", _ | Tail]) -> 
+build_constraints(["CHECK", _ | Tail]) ->
 	%% currently ignored
 	build_constraints(Tail).
 % build_constraints(["REFERENCES", Check | Tail]) -> ...
@@ -1177,12 +1177,12 @@ list_init([H|T]) -> [H|list_init(T)].
 
 %%--------------------------------------------------------------------
 %% @type sql_value() = null | number() | iodata() | {blob, binary()}.
-%% 
-%% Values accepted in SQL statements are atom 'null', numbers, 
+%%
+%% Values accepted in SQL statements are atom 'null', numbers,
 %% strings (represented as iodata()) and blobs.
 %% @end
 %% @type sql_type() = integer | text | double | blob | atom() | string().
-%% 
+%%
 %% Types of SQLite columns are represented by atoms 'integer', 'text', 'double',
 %% 'blob'. Other atoms and strings may also be used (e.g. "VARCHAR(20)", 'smallint', etc.)
 %% See [http://www.sqlite.org/datatype3.html].
@@ -1197,19 +1197,19 @@ list_init([H|T]) -> [H|list_init(T)].
 %% @type column_constraints() = column_constraint() | [column_constraint()].
 %% See {@link table_info()}.
 %% @type table_info() = [{atom(), sql_type()} | {atom(), sql_type(), column_constraints()}].
-%% 
+%%
 %% Describes the columns of an SQLite table: each tuple contains name, type and constraints (if any)
 %% of one column.
 %% @end
 %% @type table_constraint() = {primary_key, [atom()]} | {unique, [atom()]}.
 %% @type table_constraints() = table_constraint() | [table_constraint()].
-%% 
+%%
 %% Currently supported constraints for {@link table_info()} and {@link sqlite3:create_table/4}.
 %% @end
 %% @type sqlite_error() = {'error', integer(), string()} | {'error', any()}.
-%% 
-%% Errors reported by SQLite side are represented by 3-element tuples containing 
-%% atom 'error', SQLite result code ([http://www.sqlite.org/c3ref/c_abort.html], 
+%%
+%% Errors reported by SQLite side are represented by 3-element tuples containing
+%% atom 'error', SQLite result code ([http://www.sqlite.org/c3ref/c_abort.html],
 %% [http://www.sqlite.org/c3ref/c_busy_recovery.html]) and an English-language error
 %% message.
 %%
