@@ -5,6 +5,14 @@
 #  define inline __inline
 #endif
 
+#ifdef DEBUG
+static int DEBUG = 1;
+#else
+static int DEBUG = 0;
+#endif
+
+#define TRACE(x) do { if (DEBUG) debug_printf x; } while (0)
+
 static ErlDrvEntry basic_driver_entry = {
     NULL, /* init */
     start, /* startup (defined below) */
@@ -41,9 +49,8 @@ static inline void free_ptr_list(ptr_list *list, void(* free_head)(void *));
 static inline int max(int a, int b);
 #endif
 static inline int sql_is_insert(const char *sql);
-#ifdef DEBUG
 static void fprint_dataset(FILE* log, ErlDrvTermData* dataset, int term_count);
-#endif
+static void debug_printf(FILE* log, const char *fmt, ...);
 
 // required because driver_free(_binary) are macros in Windows
 static void driver_free_fun(void *ptr) {
@@ -61,6 +68,7 @@ static ErlDrvData start(ErlDrvPort port, char* cmd) {
   int status = 0;
   char *db_name;
 
+#ifdef DEBUG
   retval->log = fopen(LOG_PATH, "a+");
   if (!retval->log) {
     fprintf(stderr, "Error creating log file: %s\n", LOG_PATH);
@@ -70,11 +78,13 @@ static ErlDrvData start(ErlDrvPort port, char* cmd) {
 
   fprintf(retval->log,
           "--- Start erlang-sqlite3 driver\nCommand line: [%s]\n", cmd);
-
+#else
+  retval->log = NULL;
+#endif
   db_name = strstr(cmd, " ");
   if (!db_name) {
-    fprintf(retval->log,
-            "ERROR: DB name should be passed at command line\n");
+    TRACE((retval->log,
+            "ERROR: DB name should be passed at command line\n"));
     db_name = DB_PATH;
   } else {
     ++db_name; // move to first character after ' '
@@ -85,10 +95,10 @@ static ErlDrvData start(ErlDrvPort port, char* cmd) {
   status = sqlite3_errcode(db);
 
   if (status != SQLITE_OK) {
-    fprintf(retval->log, "ERROR: Unable to open file: %s because %s\n\n",
-            db_name, sqlite3_errmsg(db));
+    TRACE((retval->log, "ERROR: Unable to open file: %s because %s\n\n",
+            db_name, sqlite3_errmsg(db)));
   } else {
-    fprintf(retval->log, "Opened file %s\n", db_name);
+    TRACE((retval->log, "Opened file %s\n", db_name));
   }
 
   // Set the state for the driver
@@ -112,7 +122,6 @@ static ErlDrvData start(ErlDrvPort port, char* cmd) {
   retval->atom_done = driver_mk_atom("done");
   retval->atom_unknown_cmd = driver_mk_atom("unknown_command");
 
-  fflush(retval->log);
   return (ErlDrvData) retval;
 }
 
@@ -128,7 +137,9 @@ static void stop(ErlDrvData handle) {
     driver_free(driver_data->prepared_stmts);
   }
   sqlite3_close(driver_data->db);
-  fclose(driver_data->log);
+  if (driver_data->log) {
+    fclose(driver_data->log);
+  }
   driver_data->log = NULL;
 
   driver_free(driver_data);
@@ -263,10 +274,7 @@ static inline int sql_exec_statement(
     sqlite3_drv_t *drv, sqlite3_stmt *statement) {
   async_sqlite3_command *async_command = make_async_command_statement(drv, statement);
 
-#ifdef DEBUG
-  fprintf(drv->log, "Driver async: %d %p\n", SQLITE_VERSION_NUMBER, async_command->statement);
-  fflush(drv->log);
-#endif
+  TRACE((drv->log, "Driver async: %d %p\n", SQLITE_VERSION_NUMBER, async_command->statement));
 
   if (sqlite3_threadsafe()) {
     drv->async_handle = driver_async(drv->port, &drv->key, sql_exec_async,
@@ -283,10 +291,7 @@ static int sql_exec(sqlite3_drv_t *drv, char *command, int command_size) {
   const char *rest;
   sqlite3_stmt *statement;
 
-#ifdef DEBUG
-  fprintf(drv->log, "Preexec: %.*s\n", command_size, command);
-  fflush(drv->log);
-#endif
+  TRACE((drv->log, "Preexec: %.*s\n", command_size, command));
   result = sqlite3_prepare_v2(drv->db, command, command_size, &statement, &rest);
   if (result != SQLITE_OK) {
     return output_db_error(drv);
@@ -299,10 +304,7 @@ static int sql_exec(sqlite3_drv_t *drv, char *command, int command_size) {
 static int sql_exec_script(sqlite3_drv_t *drv, char *command, int command_size) {
   async_sqlite3_command *async_command = make_async_command_script(drv, command, command_size);
 
-#ifdef DEBUG
-  fprintf(drv->log, "Driver async: %d %p\n", SQLITE_VERSION_NUMBER, async_command->statement);
-  fflush(drv->log);
-#endif
+  TRACE((drv->log, "Driver async: %d %p\n", SQLITE_VERSION_NUMBER, async_command->statement));
 
   if (sqlite3_threadsafe()) {
     drv->async_handle = driver_async(drv->port, &drv->key, sql_exec_async,
@@ -504,10 +506,7 @@ static void get_columns(
   }
   for (i = 0; i < column_count; i++) {
     char *column_name = (char *) sqlite3_column_name(statement, i);
-#ifdef DEBUG
-    fprintf(drv->log, "Column: %s\n", column_name);
-    fflush(drv->log);
-#endif
+    TRACE((drv->log, "Column: %s\n", column_name));
 
     (*p_dataset)[base + (i * 3)] = ERL_DRV_STRING;
     (*p_dataset)[base + (i * 3) + 1] = (ErlDrvTermData) column_name;
@@ -527,10 +526,7 @@ static int sql_bind_and_exec(sqlite3_drv_t *drv, char *buffer, int buffer_size) 
   long bin_size;
   char *command;
 
-#ifdef DEBUG
-  fprintf(drv->log, "Preexec: %.*s\n", buffer_size, buffer);
-  fflush(drv->log);
-#endif
+  TRACE((drv->log, "Preexec: %.*s\n", buffer_size, buffer));
 
   ei_decode_version(buffer, &index, NULL);
   result = ei_decode_tuple_header(buffer, &index, &size);
@@ -626,17 +622,11 @@ static int sql_exec_one_statement(
     (*dataset_p)[base_term_count + column_count * 3 + 6] = drv->atom_rows;
   }
 
-#ifdef DEBUG
-  fprintf(drv->log, "Exec: %s\n", sqlite3_sql(statement));
-  fflush(drv->log);
-#endif
+  TRACE((drv->log, "Exec: %s\n", sqlite3_sql(statement)));
 
   while ((next_row = sqlite3_step(statement)) == SQLITE_ROW) {
     for (i = 0; i < column_count; i++) {
-#ifdef DEBUG
-      fprintf(drv->log, "Column %d type: %d\n", i, sqlite3_column_type(statement, i));
-      fflush(drv->log);
-#endif
+      TRACE((drv->log, "Column %d type: %d\n", i, sqlite3_column_type(statement, i)));
       switch (sqlite3_column_type(statement, i)) {
       case SQLITE_INTEGER: {
         ErlDrvSInt64 *int64_ptr = driver_alloc(sizeof(ErlDrvSInt64));
@@ -796,10 +786,7 @@ static int sql_exec_one_statement(
     (*dataset_p)[*term_count_p - 1] = drv->atom_ok;
   }
 
-#ifdef DEBUG
-  fprintf(drv->log, "Total term count: %p %d, rows count: %dx%d\n", statement, *term_count_p, column_count, row_count);
-  fflush(drv->log);
-#endif
+  TRACE((drv->log, "Total term count: %p %d, rows count: %dx%d\n", statement, *term_count_p, column_count, row_count));
   async_command->finalize_statement_on_free = 1;
 
   return has_error;
@@ -912,10 +899,7 @@ static void sql_step_async(void *_async_command) {
     dataset[term_count - 1] = driver_mk_port(drv->port);
 
     for (i = 0; i < column_count; i++) {
-#ifdef DEBUG
-      fprintf(drv->log, "Column %d type: %d\n", i, sqlite3_column_type(statement, i));
-      fflush(drv->log);
-#endif
+      TRACE((drv->log, "Column %d type: %d\n", i, sqlite3_column_type(statement, i)));
       switch (sqlite3_column_type(statement, i)) {
       case SQLITE_INTEGER: {
         ErlDrvSInt64 *int64_ptr = driver_alloc(sizeof(ErlDrvSInt64));
@@ -1051,10 +1035,7 @@ POPULATE_COMMAND:
   async_command->ptrs = ptrs;
   async_command->binaries = binaries;
   async_command->row_count = 1;
-#ifdef DEBUG
-  fprintf(drv->log, "Total term count: %p %d, columns count: %d\n", statement, term_count, column_count);
-  fflush(drv->log);
-#endif
+  TRACE((drv->log, "Total term count: %p %d, columns count: %d\n", statement, term_count, column_count));
 }
 
 static void ready_async(ErlDrvData drv_data, ErlDrvThreadData thread_data) {
@@ -1066,15 +1047,14 @@ static void ready_async(ErlDrvData drv_data, ErlDrvThreadData thread_data) {
                                async_command->dataset,
                                async_command->term_count);
   (void) res; // suppress unused warning
-#ifdef DEBUG
   if (res != 1) {
-    fprintf(drv->log, "driver_output_term returned %d\n", res);
+    TRACE((drv->log, "driver_output_term returned %d\n", res));
+#ifdef DEBUG
     fprint_dataset(drv->log, async_command->dataset, async_command->term_count);
+#endif
   }
 
-  fprintf(drv->log, "Total term count: %p %d, rows count: %d (%d)\n", async_command->statement, async_command->term_count, async_command->row_count, res);
-  fflush(drv->log);
-#endif
+  TRACE((drv->log, "Total term count: %p %d, rows count: %d (%d)\n", async_command->statement, async_command->term_count, async_command->row_count, res));
   sql_free_async(async_command);
 }
 
@@ -1084,10 +1064,7 @@ static int prepare(sqlite3_drv_t *drv, char *command, int command_size) {
   sqlite3_stmt *statement;
   ErlDrvTermData spec[6];
 
-#ifdef DEBUG
-  fprintf(drv->log, "Preparing statement: %.*s\n", command_size, command);
-  fflush(drv->log);
-#endif
+  TRACE((drv->log, "Preparing statement: %.*s\n", command_size, command));
   result = sqlite3_prepare_v2(drv->db, command, command_size, &statement, &rest);
   if (result != SQLITE_OK) {
     return output_db_error(drv);
@@ -1121,10 +1098,7 @@ static int prepared_bind(sqlite3_drv_t *drv, char *buffer, int buffer_size) {
   int index = 0, type, size;
   sqlite3_stmt *statement;
 
-#ifdef DEBUG
-  fprintf(drv->log, "Finalizing prepared statement: %.*s\n", buffer_size, buffer);
-  fflush(drv->log);
-#endif
+  TRACE((drv->log, "Finalizing prepared statement: %.*s\n", buffer_size, buffer));
 
   ei_decode_version(buffer, &index, NULL);
   ei_decode_tuple_header(buffer, &index, &size);
@@ -1159,18 +1133,13 @@ static int prepared_columns(sqlite3_drv_t *drv, char *buffer, int buffer_size) {
   prepared_index = (unsigned int) long_prepared_index;
 
   if (prepared_index >= drv->prepared_count) {
-#ifdef DEBUG
-    fprintf(drv->log, "Tried to get columns for prepared statement #%d, but maximum possible is #%d\n", prepared_index, drv->prepared_count - 1);
-    fflush(drv->log);
-#endif      
+    TRACE((drv->log, "Tried to get columns for prepared statement #%d, but maximum possible is #%d\n", prepared_index, drv->prepared_count - 1));
+
     return output_error(drv, SQLITE_MISUSE,
                         "Trying to reset non-existent prepared statement");
   }
 
-#ifdef DEBUG
-  fprintf(drv->log, "Getting the columns for prepared statement #%d\n", prepared_index);
-  fflush(drv->log);
-#endif
+  TRACE((drv->log, "Getting the columns for prepared statement #%d\n", prepared_index));
 
   statement = drv->prepared_stmts[prepared_index];
 
@@ -1204,18 +1173,12 @@ static int prepared_step(sqlite3_drv_t *drv, char *buffer, int buffer_size) {
   prepared_index = (unsigned int) long_prepared_index;
 
   if (prepared_index >= drv->prepared_count) {
-#ifdef DEBUG
-    fprintf(drv->log, "Tried to make a step in prepared statement #%d, but maximum possible is #%d\n", prepared_index, drv->prepared_count - 1);
-    fflush(drv->log);
-#endif      
+    TRACE((drv->log, "Tried to make a step in prepared statement #%d, but maximum possible is #%d\n", prepared_index, drv->prepared_count - 1));
     return output_error(drv, SQLITE_MISUSE,
                         "Trying to evaluate non-existent prepared statement");
   }
 
-#ifdef DEBUG
-  fprintf(drv->log, "Making a step in prepared statement #%d\n", prepared_index);
-  fflush(drv->log);
-#endif
+  TRACE((drv->log, "Making a step in prepared statement #%d\n", prepared_index));
 
   statement = drv->prepared_stmts[prepared_index];
   async_command = make_async_command_statement(drv, statement);
@@ -1241,18 +1204,12 @@ static int prepared_reset(sqlite3_drv_t *drv, char *buffer, int buffer_size) {
   prepared_index = (unsigned int) long_prepared_index;
 
   if (prepared_index >= drv->prepared_count) {
-#ifdef DEBUG
-    fprintf(drv->log, "Tried to reset prepared statement #%d, but maximum possible is #%d\n", prepared_index, drv->prepared_count - 1);
-    fflush(drv->log);
-#endif      
+    TRACE((drv->log, "Tried to reset prepared statement #%d, but maximum possible is #%d\n", prepared_index, drv->prepared_count - 1));
     return output_error(drv, SQLITE_MISUSE,
                         "Trying to reset non-existent prepared statement");
   }
 
-#ifdef DEBUG
-  fprintf(drv->log, "Resetting prepared statement #%d\n", prepared_index);
-  fflush(drv->log);
-#endif
+  TRACE((drv->log, "Resetting prepared statement #%d\n", prepared_index));
   // don't bother about error code, any errors should already be shown by step
   statement = drv->prepared_stmts[prepared_index];
   sqlite3_reset(statement);
@@ -1270,18 +1227,12 @@ static int prepared_clear_bindings(sqlite3_drv_t *drv, char *buffer, int buffer_
   prepared_index = (unsigned int) long_prepared_index;
 
   if (prepared_index >= drv->prepared_count) {
-#ifdef DEBUG
-    fprintf(drv->log, "Tried to clear bindings of prepared statement #%d, but maximum possible is #%d\n", prepared_index, drv->prepared_count - 1);
-    fflush(drv->log);
-#endif      
+    TRACE((drv->log, "Tried to clear bindings of prepared statement #%d, but maximum possible is #%d\n", prepared_index, drv->prepared_count - 1));
     return output_error(drv, SQLITE_MISUSE,
                         "Trying to clear bindings of non-existent prepared statement");
   }
 
-#ifdef DEBUG
-  fprintf(drv->log, "Clearing bindings of prepared statement #%d\n", prepared_index);
-  fflush(drv->log);
-#endif
+  TRACE((drv->log, "Clearing bindings of prepared statement #%d\n", prepared_index));
   statement = drv->prepared_stmts[prepared_index];
   sqlite3_clear_bindings(statement);
   return output_ok(drv);
@@ -1297,18 +1248,12 @@ static int prepared_finalize(sqlite3_drv_t *drv, char *buffer, int buffer_size) 
   prepared_index = (unsigned int) long_prepared_index;
 
   if (prepared_index >= drv->prepared_count) {
-#ifdef DEBUG
-    fprintf(drv->log, "Tried to finalize prepared statement #%d, but maximum possible is #%d\n", prepared_index, drv->prepared_count - 1);
-    fflush(drv->log);
-#endif      
+    TRACE((drv->log, "Tried to finalize prepared statement #%d, but maximum possible is #%d\n", prepared_index, drv->prepared_count - 1));
     return output_error(drv, SQLITE_MISUSE,
                         "Trying to finalize non-existent prepared statement");
   }
 
-#ifdef DEBUG
-  fprintf(drv->log, "Finalizing prepared statement #%d\n", prepared_index);
-  fflush(drv->log);
-#endif
+  TRACE((drv->log, "Finalizing prepared statement #%d\n", prepared_index));
   // finalize the statement and make sure it isn't accidentally executed again
   sqlite3_finalize(drv->prepared_stmts[prepared_index]);
   drv->prepared_stmts[prepared_index] = NULL;
@@ -1373,13 +1318,12 @@ static inline int sql_is_insert(const char *sql) {
   return 1;
 }
 
-#ifdef DEBUG
 static void fprint_dataset(FILE* log, ErlDrvTermData *dataset, int term_count) {
   int i = 0, stack_size = 0;
   ErlDrvUInt length;
 
   fprintf(log, "\nPrinting dataset\n");
-  while (i < term_count) {
+  while(i < term_count) {
     switch (dataset[i]) {
     case ERL_DRV_NIL:
       fprintf(log, "%d: []", i);
@@ -1453,7 +1397,7 @@ static void fprint_dataset(FILE* log, ErlDrvTermData *dataset, int term_count) {
 #if defined(_MSC_VER)
       fprintf(log, "%d-%d: int %I64d", i, i+1, (ErlDrvSInt64) dataset[i+1]);
 #else
-      fprintf(log, "%d-%d: int %lld", i, i+1, (ErlDrvSInt64) dataset[i+1]);
+      fprintf(log, "%d-%d: int %ld", i, i+1, (ErlDrvSInt64) dataset[i+1]);
 #endif
       i += 2;
       stack_size++;
@@ -1462,7 +1406,7 @@ static void fprint_dataset(FILE* log, ErlDrvTermData *dataset, int term_count) {
 #if defined(_MSC_VER)
       fprintf(log, "%d-%d: int %I64lu", i, i+1, (ErlDrvUInt64) dataset[i+1]);
 #else
-      fprintf(log, "%d-%d: int %llu", i, i+1, (ErlDrvUInt64) dataset[i+1]);
+      fprintf(log, "%d-%d: int %lu", i, i+1, (ErlDrvUInt64) dataset[i+1]);
 #endif
       i += 2;
       stack_size++;
@@ -1473,6 +1417,14 @@ static void fprint_dataset(FILE* log, ErlDrvTermData *dataset, int term_count) {
       break;
     }
     fprintf(log, ".\tStack size: %d\n", stack_size);
+    fflush(log);
   }
 }
-#endif
+
+static void debug_printf(FILE* log, const char *fmt, ...) {
+  va_list args;
+  va_start(args, fmt);
+  vfprintf(log, fmt, args);
+  fflush(log);
+  va_end(args);
+}
