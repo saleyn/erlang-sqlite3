@@ -1069,7 +1069,7 @@ wait_result(Port) ->
         {Port, Reply} ->
             Reply;
         {'EXIT', Port, Reason} ->
-            {error, Reason};
+            {error, {port_exit, Reason}};
         Other when is_tuple(Other), element(1, Other) =/= '$gen_call', element(1, Other) =/= '$gen_cast' ->
             Other
     end.
