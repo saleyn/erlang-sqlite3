@@ -137,7 +137,7 @@ static void stop(ErlDrvData handle) {
     driver_free(driver_data->prepared_stmts);
   }
   sqlite3_close(driver_data->db);
-  if (driver_data->log) {
+  if (driver_data->log && (driver_data->log != stderr)) {
     fclose(driver_data->log);
   }
   driver_data->log = NULL;
