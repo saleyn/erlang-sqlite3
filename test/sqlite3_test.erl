@@ -50,7 +50,8 @@ all_test_() ->
       ?FuncTest(large_number),
       ?FuncTest(unicode),
       ?FuncTest(acc_string_encoding),
-      ?FuncTest(large_offset)]}.
+      ?FuncTest(large_offset),
+      ?FuncTest(enable_load_extension)]}.
 
 open_db() ->
     sqlite3:open(ct, [in_memory]).
@@ -302,6 +303,9 @@ large_offset() ->
 	?assertEqual(
 	    [{columns, ["id"]}, {rows, []}, {error, 20, "datatype mismatch"}],
 	    sqlite3:sql_exec(ct, "select * from large_offset limit 1 offset 9223372036854775808")).
+
+enable_load_extension() ->
+    ?assertEqual(ok, sqlite3:enable_load_extension(ct, 1)).
 
 % create, read, update, delete
 %%====================================================================

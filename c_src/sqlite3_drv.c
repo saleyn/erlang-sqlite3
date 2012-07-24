@@ -125,6 +125,16 @@ static ErlDrvData start(ErlDrvPort port, char* cmd) {
   return (ErlDrvData) retval;
 }
 
+static int enable_load_extension(sqlite3_drv_t* drv, char *buf,
+    int len) {
+  if (buf[1]) {
+    sqlite3_enable_load_extension(drv->db, 1);
+  } else {
+    sqlite3_enable_load_extension(drv->db, 0);
+  }
+  return 0;
+}
+
 // Driver Stop
 static void stop(ErlDrvData handle) {
   sqlite3_drv_t* driver_data = (sqlite3_drv_t*) handle;
@@ -180,6 +190,9 @@ static int control(
     break;
   case CMD_SQL_EXEC_SCRIPT:
     sql_exec_script(driver_data, buf, len);
+    break;
+  case CMD_ENABLE_LOAD_EXTENSION:
+    enable_load_extension(driver_data, buf, len);
     break;
   default:
     unknown(driver_data, buf, len);
