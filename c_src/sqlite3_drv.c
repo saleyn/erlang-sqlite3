@@ -181,6 +181,9 @@ static int control(
   case CMD_SQL_EXEC_SCRIPT:
     sql_exec_script(driver_data, buf, len);
     break;
+  case CMD_ENABLE_LOAD_EXTENSION:
+    enable_load_extension(driver_data, buf, len);
+    break;
   default:
     unknown(driver_data, buf, len);
   }
@@ -241,6 +244,14 @@ static inline int output_ok(sqlite3_drv_t *drv) {
       ERL_DRV_TUPLE, 2
   };
   return driver_output_term(drv->port, spec, sizeof(spec) / sizeof(spec[0]));
+}
+
+static int enable_load_extension(sqlite3_drv_t* drv, char *buf,
+    int len) {
+  char enable = buf[0];
+  sqlite3_enable_load_extension(drv->db, (int) enable);
+  output_ok(drv);
+  return 0;
 }
 
 static inline async_sqlite3_command *make_async_command_statement(

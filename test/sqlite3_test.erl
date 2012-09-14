@@ -51,7 +51,8 @@ all_test_() ->
       ?FuncTest(unicode),
       ?FuncTest(acc_string_encoding),
       ?FuncTest(large_offset),
-      ?FuncTest(issue13)]}.
+      ?FuncTest(issue13),
+      ?FuncTest(enable_load_extension)]}.
 
 open_db() ->
     sqlite3:open(ct, [in_memory]).
@@ -325,6 +326,9 @@ issue13() ->
 	?assertEqual(
 		[{columns, ["foo"]}, {rows, [{255}, {256}]}],
 		sqlite3:sql_exec(ct, "select foo from issue13 where foo > ?;", [128])).
+
+enable_load_extension() ->
+    ?assertEqual(ok, sqlite3:enable_load_extension(ct, 1)).
 
 % create, read, update, delete
 %%====================================================================
