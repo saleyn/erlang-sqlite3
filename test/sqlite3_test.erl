@@ -50,7 +50,8 @@ all_test_() ->
       ?FuncTest(large_number),
       ?FuncTest(unicode),
       ?FuncTest(acc_string_encoding),
-      ?FuncTest(large_offset)]}.
+      ?FuncTest(large_offset),
+	  ?FuncTest(issue13)]}.
 
 open_db() ->
     sqlite3:open(ct, [in_memory]).
@@ -309,6 +310,21 @@ large_offset() ->
 	?assertMatch(
 	    [{columns, ["id"]}, {rows, []}, {error, 20, _}],
 	    sqlite3:sql_exec(ct, "select * from large_offset limit 1 offset 9223372036854775808")).
+
+issue13() ->
+	drop_table_if_exists(ct, issue13),
+	ok = sqlite3:create_table(ct, issue13, [{foo, integer}]),
+	sqlite3:write_many(ct, issue13, 
+					   [[{foo, X}] || X <- [-1, 0, 127, 128, 255, 256]]),
+	?assertEqual(
+		[{columns, ["foo"]}, {rows, [{255}, {256}]}],
+		sqlite3:sql_exec(ct, "select foo from issue13 where foo > 128;")),
+	?assertEqual(
+		[{columns, ["foo"]}, {rows, [{255}, {256}]}],
+		sqlite3:sql_exec(ct, "select foo from issue13 where foo > ?;", [128.0])),
+	?assertEqual(
+		[{columns, ["foo"]}, {rows, [{255}, {256}]}],
+		sqlite3:sql_exec(ct, "select foo from issue13 where foo > ?;", [128])).
 
 % create, read, update, delete
 %%====================================================================
