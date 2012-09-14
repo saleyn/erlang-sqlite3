@@ -71,8 +71,8 @@ basic_functionality() ->
     TableInfo1 = lists:keyreplace(age, 1, TableInfo, {age, integer, [not_null]}),
     drop_all_tables(ct),
     ?WARN_ERROR_MESSAGE,
-    ?assertEqual(
-        {error, 21, "empty statement"},
+    ?assertMatch(
+        {error, 21, _},
         sqlite3:sql_exec(ct, "-- Comment")),
     ?assertEqual(
         [], 
@@ -91,8 +91,8 @@ basic_functionality() ->
         {rowid, 2}, 
         sqlite3:write(ct, user, [{name, "marge"}, {age, 30}, {wage, 2000}])),
     ?WARN_ERROR_MESSAGE,
-    ?assertEqual(
-        {error, 19, "constraint failed"}, 
+    ?assertMatch(
+        {error, 19, _}, 
         sqlite3:write(ct, user, [{name, "marge"}, {age, 30}, {wage, 2000}])),
     ?assertEqual(
         [{columns, Columns}, {rows, AllRows}], 
@@ -306,8 +306,8 @@ script_test() ->
 large_offset() ->
 	drop_table_if_exists(ct, large_offset),
 	ok = sqlite3:create_table(ct, large_offset, [{id, integer}]),
-	?assertEqual(
-	    [{columns, ["id"]}, {rows, []}, {error, 20, "datatype mismatch"}],
+	?assertMatch(
+	    [{columns, ["id"]}, {rows, []}, {error, 20, _}],
 	    sqlite3:sql_exec(ct, "select * from large_offset limit 1 offset 9223372036854775808")).
 
 % create, read, update, delete
