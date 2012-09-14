@@ -280,6 +280,13 @@ script_test() ->
     ?assertEqual(
         [{columns,["id"]},{rows,[{1},{2}]}], 
         sqlite3:read_all(script, person)),
+	Script2 = "select * from person; update person set id=3 where id=2",
+    ?assertEqual(
+        [[{columns,["id"]},{rows,[{1},{2}]}], ok], 
+        sqlite3:sql_exec_script(script, Script2)),
+    ?assertEqual(
+        [{columns,["id"]},{rows,[{1},{3}]}], 
+        sqlite3:read_all(script, person)),
     BadScript = string:join(
                  ["CREATE TABLE person2(",
                   "id INTEGER",
