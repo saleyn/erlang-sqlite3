@@ -357,7 +357,7 @@ static inline int decode_and_bind_param(
     // include space for null separator
     char_buf_val = driver_alloc((*p_size + 1) * sizeof(char));
     ei_decode_string(buffer, p_index, char_buf_val);
-   result = sqlite3_bind_text(statement, param_index, char_buf_val, *p_size, &driver_free_fun);
+    result = sqlite3_bind_text(statement, param_index, char_buf_val, *p_size, &driver_free_fun);
     break;
   case ERL_BINARY_EXT:
     char_buf_val = driver_alloc(*p_size * sizeof(char));

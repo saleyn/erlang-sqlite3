@@ -51,7 +51,7 @@ all_test_() ->
       ?FuncTest(unicode),
       ?FuncTest(acc_string_encoding),
       ?FuncTest(large_offset),
-	  ?FuncTest(issue13)]}.
+      ?FuncTest(issue13)]}.
 
 open_db() ->
     sqlite3:open(ct, [in_memory]).
