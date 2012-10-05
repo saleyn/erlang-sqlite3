@@ -52,6 +52,7 @@ all_test_() ->
       ?FuncTest(acc_string_encoding),
       ?FuncTest(large_offset),
       ?FuncTest(issue13),
+      ?FuncTest(issue15),
       ?FuncTest(enable_load_extension)]}.
 
 open_db() ->
@@ -326,6 +327,30 @@ issue13() ->
 	?assertEqual(
 		[{columns, ["foo"]}, {rows, [{255}, {256}]}],
 		sqlite3:sql_exec(ct, "select foo from issue13 where foo > ?;", [128])).
+
+issue15() ->
+	drop_table_if_exists(ct, issue15),
+%% 	ok = sqlite3:create_table(ct, issue15, [{title, text}, {owner, int}, {status, int}, {date, int}]),
+%% 	sqlite3:write_many(ct, issue15, 
+%% 					   [[{title, T}, {owner, O}, {status, S}, {date, D}] || 
+%% 						 {T, O, S, D} <- [{"critical error should be simple error",1,1,null},
+%% 										  {"typo in comment",1,1,1349379571},
+%% 										  {"Serious slow-down at startup",1,1,null},
+%% 										  {"empty plc database",1,1,null}]]),
+	SQL = "PRAGMA foreign_keys=OFF; BEGIN TRANSACTION;" ++
+		"CREATE TABLE issue15 (title TEXT, owner INT, status INT, date int);" ++
+		"INSERT INTO issue15 VALUES('critical error should be simple error',1,1,NULL);" ++
+		"INSERT INTO issue15 VALUES('typo in comment',1,1,1349379571);" ++
+		"INSERT INTO issue15 VALUES('Serious slow-down at startup',1,1,NULL);" ++
+		"INSERT INTO issue15 VALUES('empty plc database',1,1,NULL);" ++
+		"COMMIT;",
+	sqlite3:sql_exec_script(ct, SQL),
+	?assertEqual([{columns,["title","owner","status","date"]},
+		{rows,[{<<"critical error should be simple error">>,1,1,null}]}], 
+		sqlite3:sql_exec(ct, "select * from issue15 where rowid=1;")),
+	?assertEqual([{columns,["title","owner","status","date"]},
+		{rows,[{<<"typo in comment">>,1,1,1349379571}]}], 
+		sqlite3:sql_exec(ct, "select * from issue15 where rowid=2;")).
 
 enable_load_extension() ->
     ?assertEqual(ok, sqlite3:enable_load_extension(ct, 1)).
