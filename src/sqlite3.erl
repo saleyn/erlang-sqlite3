@@ -828,9 +828,9 @@ handle_call({write, Tbl, Data}, _From, State) ->
             {reply, {error, Exception}, State}
     end;
 handle_call({write_many, Tbl, DataList}, _From, State) ->
-    SQLScript = ["BEGIN;", 
+    SQLScript = ["SAVEPOINT 'erlang-sqlite3-write_many';", 
                  [sqlite3_lib:write_sql(Tbl, Data) || Data <- DataList], 
-                 "COMMIT;"],
+                 "RELEASE SAVEPOINT 'erlang-sqlite3-write_many';"],
     Reply = do_sql_exec_script(SQLScript, State),
     {reply, Reply, State};
 handle_call({read, Tbl}, _From, State) ->
