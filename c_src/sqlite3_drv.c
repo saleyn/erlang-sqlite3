@@ -1419,7 +1419,7 @@ static void fprint_dataset(FILE* log, ErlDrvTermData *dataset, int term_count) {
 #if defined(_MSC_VER)
       fprintf(log, "%d-%d: int %I64d", i, i+1, (ErlDrvSInt64) dataset[i+1]);
 #else
-      fprintf(log, "%d-%d: int %ld", i, i+1, (ErlDrvSInt64) dataset[i+1]);
+      fprintf(log, "%d-%d: int %lld", i, i+1, (ErlDrvSInt64) dataset[i+1]);
 #endif
       i += 2;
       stack_size++;
@@ -1428,7 +1428,7 @@ static void fprint_dataset(FILE* log, ErlDrvTermData *dataset, int term_count) {
 #if defined(_MSC_VER)
       fprintf(log, "%d-%d: int %I64lu", i, i+1, (ErlDrvUInt64) dataset[i+1]);
 #else
-      fprintf(log, "%d-%d: int %lu", i, i+1, (ErlDrvUInt64) dataset[i+1]);
+      fprintf(log, "%d-%d: int %llu", i, i+1, (ErlDrvUInt64) dataset[i+1]);
 #endif
       i += 2;
       stack_size++;
