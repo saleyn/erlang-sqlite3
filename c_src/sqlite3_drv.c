@@ -246,12 +246,16 @@ static inline int output_ok(sqlite3_drv_t *drv) {
   return driver_output_term(drv->port, spec, sizeof(spec) / sizeof(spec[0]));
 }
 
-static int enable_load_extension(sqlite3_drv_t* drv, char *buf,
-    int len) {
+static int enable_load_extension(sqlite3_drv_t* drv, char *buf, int len) {
+#ifdef ERLANG_SQLITE3_LOAD_EXTENSION
   char enable = buf[0];
   sqlite3_enable_load_extension(drv->db, (int) enable);
   output_ok(drv);
   return 0;
+#else
+  output_error(drv, SQLITE_MISUSE, "extension loading not enabled");
+  return -1;
+#endif
 }
 
 static inline async_sqlite3_command *make_async_command_statement(
@@ -1415,7 +1419,7 @@ static void fprint_dataset(FILE* log, ErlDrvTermData *dataset, int term_count) {
 #if defined(_MSC_VER)
       fprintf(log, "%d-%d: int %I64d", i, i+1, (ErlDrvSInt64) dataset[i+1]);
 #else
-      fprintf(log, "%d-%d: int %ld", i, i+1, (ErlDrvSInt64) dataset[i+1]);
+      fprintf(log, "%d-%d: int %lld", i, i+1, (ErlDrvSInt64) dataset[i+1]);
 #endif
       i += 2;
       stack_size++;
@@ -1424,7 +1428,7 @@ static void fprint_dataset(FILE* log, ErlDrvTermData *dataset, int term_count) {
 #if defined(_MSC_VER)
       fprintf(log, "%d-%d: int %I64lu", i, i+1, (ErlDrvUInt64) dataset[i+1]);
 #else
-      fprintf(log, "%d-%d: int %lu", i, i+1, (ErlDrvUInt64) dataset[i+1]);
+      fprintf(log, "%d-%d: int %llu", i, i+1, (ErlDrvUInt64) dataset[i+1]);
 #endif
       i += 2;
       stack_size++;

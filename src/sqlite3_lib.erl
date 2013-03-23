@@ -304,11 +304,11 @@ sql_number(NumberStr) ->
     case string:to_integer(NumberStr) of
         {Int, []} -> 
             Int;
-        Other -> 
+        _ ->
             case string:to_float(NumberStr) of
                 {Float, []} ->
                     Float;
-                Other ->
+                _ ->
                     {error, not_a_number}
             end
     end.
@@ -407,6 +407,17 @@ to_iolist(B) when is_binary(B) ->
 quote_test() ->
     ?assertFlat("'abc'", value_to_sql("abc")),
     ?assertFlat("'a''b''''c'", value_to_sql("a'b''c")).
+
+number_test() ->
+    ?assertEqual(sql_number(""),    {error, not_a_number}),
+    ?assertEqual(sql_number("a"),   {error, not_a_number}),
+    ?assertEqual(sql_number(" 1"),  {error, not_a_number}),
+    ?assertEqual(sql_number("1 "),  {error, not_a_number}),
+    ?assertEqual(sql_number(" 1 "), {error, not_a_number}),
+    ?assertEqual(sql_number("0"),   0),
+    ?assertEqual(sql_number("0.0"), 0.0),
+    ?assertEqual(sql_number("-0.0"), 0.0),
+    ?assertEqual(sql_number("+0.0"), 0.0).
 
 create_table_sql_test() ->
     ?assertFlat(
