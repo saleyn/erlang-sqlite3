@@ -249,9 +249,14 @@ static inline int output_ok(sqlite3_drv_t *drv) {
 static int enable_load_extension(sqlite3_drv_t* drv, char *buf, int len) {
 #ifdef ERLANG_SQLITE3_LOAD_EXTENSION
   char enable = buf[0];
-  sqlite3_enable_load_extension(drv->db, (int) enable);
-  output_ok(drv);
-  return 0;
+  int result = sqlite3_enable_load_extension(drv->db, (int) enable);
+  if (result) {
+    output_db_error(drv);
+    return result;
+  } else {
+    output_ok(drv);
+    return 0;
+  }
 #else
   output_error(drv, SQLITE_MISUSE, "extension loading not enabled");
   return -1;
