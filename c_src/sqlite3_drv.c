@@ -258,7 +258,7 @@ static int enable_load_extension(sqlite3_drv_t* drv, char *buf, int len) {
     return 0;
   }
 #else
-  output_error(drv, SQLITE_MISUSE, "extension loading not enabled");
+  output_error(drv, SQLITE_MISUSE, "extension loading not enabled, recompile erlang-sqlite3 with ERLANG_SQLITE3_LOAD_EXTENSION defined");
   return -1;
 #endif
 }
