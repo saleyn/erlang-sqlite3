@@ -54,6 +54,15 @@ all_test_() ->
       ?FuncTest(issue13),
       ?FuncTest(enable_load_extension)]}.
 
+anonymous_test() ->
+    {ok, Pid} = sqlite3:open(anonymous, []),
+    try
+        ?assertEqual(undefined, whereis(anonymous)),
+        ?assertNot(filelib:is_file("./anonymous.db"))
+    after
+        sqlite3:close(Pid)
+    end.
+
 open_db() ->
     sqlite3:open(ct, [in_memory]).
 
