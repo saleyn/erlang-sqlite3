@@ -56,21 +56,22 @@
 %%====================================================================
 %%--------------------------------------------------------------------
 %% @doc
-%%   Opens the sqlite3 database in file Db.db in the working directory
+%%   Opens the sqlite3 database in file DbName.db in the working directory
 %%   (creating this file if necessary). This is the same as open/1.
 %% @end
 %%--------------------------------------------------------------------
 -type option() :: {file, string()} | temporary | in_memory.
 -type result() :: {'ok', pid()} | 'ignore' | {'error', any()}.
+-type db() :: atom() | pid().
 
 -spec start_link(atom()) -> result().
-start_link(Db) ->
-    open(Db, []).
+start_link(DbName) ->
+    open(DbName, []).
 
 %%--------------------------------------------------------------------
 %% @doc
 %%   Opens a sqlite3 database creating one if necessary. By default the
-%%   database will be called Db.db in the current path. This can be changed
+%%   database will be called DbName.db in the current path. This can be changed
 %%   by passing the option {file, DbFile :: String()}. DbFile must be the
 %%   full path to the sqlite3 db file. start_link/1 can be use with stop/0,
 %%   sql_exec/1, create_table/2, list_tables/0, table_info/1, write/2,
@@ -78,60 +79,66 @@ start_link(Db) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec start_link(atom(), [option()]) -> result().
-start_link(Db, Options) ->
-    open(Db, Options).
+start_link(DbName, Options) ->
+    open(DbName, Options).
 
 %%--------------------------------------------------------------------
 %% @doc
-%%   Opens the sqlite3 database in file Db.db in the working directory
-%%   (creating this file if necessary). This is the same as open/1.
+%%   Opens the sqlite3 database in file DbName.db in the working directory
+%%   (creating this file if necessary).
 %% @end
 %%--------------------------------------------------------------------
 -spec open(atom()) -> result().
-open(Db) ->
-    open(Db, []).
+open(DbName) ->
+    open(DbName, []).
 
 %%--------------------------------------------------------------------
-%% @spec open(Db :: atom(), Options :: [option()]) -> {ok, Pid :: pid()} | ignore | {error, Error}
+%% @spec open(DbName :: atom(), Options :: [option()]) -> {ok, Pid :: pid()} | ignore | {error, Error}
 %% @type option() = {file, DbFile :: string()} | in_memory | temporary
 %%
 %% @doc
 %%   Opens a sqlite3 database creating one if necessary. By default the database
-%%   will be called Db.db in the current path. This can be changed by
-%%   passing the option {file, DbFile :: string()}. DbFile must be the full
-%%   path to the sqlite3 db file. Can be use to open multiple sqlite3 databases
-%%   per node. Must be use in conjunction with stop/1, sql_exec/2,
+%%   will be called DbName.db in the current path (unless Db is 'anonymous', see below).
+%%   This can be changed by passing the option {file, DbFile :: string()}. DbFile 
+%%   must be the full path to the sqlite3 db file. Can be used to open multiple sqlite3
+%%   databases per node. Must be use in conjunction with stop/1, sql_exec/2,
 %%   create_table/3, list_tables/1, table_info/2, write/3, read/3, delete/3
-%%   and drop_table/2.
+%%   and drop_table/2. If the name is an atom other than 'anonymous', it's used for 
+%%   registering the gen_server and must be unique. If the name is 'anonymous',
+%%   the process isn't registered.
 %% @end
 %%--------------------------------------------------------------------
 -spec open(atom(), [option()]) -> result().
-open(Db, Options) ->
+open(DbName, Options) ->
+    IsAnonymous = DbName =:= anonymous,
     Opts = case proplists:lookup(file, Options) of
                none ->
-                   DbName = case proplists:is_defined(temporary, Options) of
+                   DbFile = case proplists:is_defined(in_memory, Options) of
                                 true ->
-                                    "";
+                                    ":memory:";
                                 false ->
-                                    case proplists:is_defined(in_memory, Options) of
+                                    case IsAnonymous orelse proplists:is_defined(temporary, Options) of
                                         true ->
-                                            ":memory:";
+                                            "";
                                         false ->
-                                            "./" ++ atom_to_list(Db) ++ ".db"
+                                            "./" ++ atom_to_list(DbName) ++ ".db"
                                     end
                             end,
-                   [{file, DbName} | Options];
+                   [{file, DbFile} | Options];
                {file, _} ->
                    Options
            end,
-    gen_server:start_link({local, Db}, ?MODULE, Opts, []).
+    if
+        IsAnonymous -> gen_server:start_link(?MODULE, Opts, []);
+        true -> gen_server:start_link({local, DbName}, ?MODULE, Opts, [])
+    end.
 
 %%--------------------------------------------------------------------
 %% @doc
 %%   Closes the Db sqlite3 database.
 %% @end
 %%--------------------------------------------------------------------
--spec close(atom()) -> 'ok'.
+-spec close(db()) -> 'ok'.
 close(Db) ->
     gen_server:call(Db, close).
 
@@ -140,7 +147,7 @@ close(Db) ->
 %%   Closes the Db sqlite3 database.
 %% @end
 %%--------------------------------------------------------------------
--spec close_timeout(atom(), timeout()) -> 'ok'.
+-spec close_timeout(db(), timeout()) -> 'ok'.
 close_timeout(Db, Timeout) ->
     gen_server:call(Db, close, Timeout).
 
@@ -171,7 +178,7 @@ sql_exec(SQL) ->
 %%   result of the Sql call.
 %% @end
 %%--------------------------------------------------------------------
--spec sql_exec(atom(), iodata()) -> sql_result().
+-spec sql_exec(db(), iodata()) -> sql_result().
 sql_exec(Db, SQL) ->
     gen_server:call(Db, {sql_exec, SQL}).
 
@@ -181,7 +188,7 @@ sql_exec(Db, SQL) ->
 %%   database. Returns the result of the Sql call.
 %% @end
 %%--------------------------------------------------------------------
--spec sql_exec(atom(), iodata(), [sql_value() | {atom() | string() | integer(), sql_value()}]) ->
+-spec sql_exec(db(), iodata(), [sql_value() | {atom() | string() | integer(), sql_value()}]) ->
        sql_result().
 sql_exec(Db, SQL, Params) ->
     gen_server:call(Db, {sql_bind_and_exec, SQL, Params}).
@@ -192,7 +199,7 @@ sql_exec(Db, SQL, Params) ->
 %%   result of the Sql call.
 %% @end
 %%--------------------------------------------------------------------
--spec sql_exec_timeout(atom(), iodata(), timeout()) -> sql_result().
+-spec sql_exec_timeout(db(), iodata(), timeout()) -> sql_result().
 sql_exec_timeout(Db, SQL, Timeout) ->
     gen_server:call(Db, {sql_exec, SQL}, Timeout).
 
@@ -202,7 +209,7 @@ sql_exec_timeout(Db, SQL, Timeout) ->
 %%   database. Returns the result of the Sql call.
 %% @end
 %%--------------------------------------------------------------------
--spec sql_exec_timeout(atom(), iodata(), [sql_value() | {atom() | string() | integer(), sql_value()}], timeout()) ->
+-spec sql_exec_timeout(db(), iodata(), [sql_value() | {atom() | string() | integer(), sql_value()}], timeout()) ->
        sql_result().
 sql_exec_timeout(Db, SQL, Params, Timeout) ->
     gen_server:call(Db, {sql_bind_and_exec, SQL, Params}, Timeout).
@@ -217,7 +224,7 @@ sql_exec_timeout(Db, SQL, Params, Timeout) ->
 %%   The return value is the list of results of all executed statements.
 %% @end
 %%--------------------------------------------------------------------
--spec sql_exec_script(atom(), iodata()) -> [sql_result()].
+-spec sql_exec_script(db(), iodata()) -> [sql_result()].
 sql_exec_script(Db, SQL) ->
     gen_server:call(Db, {sql_exec_script, SQL}).
 
@@ -231,63 +238,63 @@ sql_exec_script(Db, SQL) ->
 %%   The return value is the list of results of all executed statements.
 %% @end
 %%--------------------------------------------------------------------
--spec sql_exec_script_timeout(atom(), iodata(), timeout()) -> [sql_result()].
+-spec sql_exec_script_timeout(db(), iodata(), timeout()) -> [sql_result()].
 sql_exec_script_timeout(Db, SQL, Timeout) ->
     gen_server:call(Db, {sql_exec_script, SQL}, Timeout).
 
--spec prepare(atom(), iodata()) -> {ok, reference()} | sqlite_error().
+-spec prepare(db(), iodata()) -> {ok, reference()} | sqlite_error().
 prepare(Db, SQL) ->
     gen_server:call(Db, {prepare, SQL}).
 
--spec bind(atom(), reference(), sql_params()) -> sql_non_query_result().
+-spec bind(db(), reference(), sql_params()) -> sql_non_query_result().
 bind(Db, Ref, Params) ->
     gen_server:call(Db, {bind, Ref, Params}).
 
--spec next(atom(), reference()) -> tuple() | done | sqlite_error().
+-spec next(db(), reference()) -> tuple() | done | sqlite_error().
 next(Db, Ref) ->
     gen_server:call(Db, {next, Ref}).
 
--spec reset(atom(), reference()) -> sql_non_query_result().
+-spec reset(db(), reference()) -> sql_non_query_result().
 reset(Db, Ref) ->
     gen_server:call(Db, {reset, Ref}).
 
--spec clear_bindings(atom(), reference()) -> sql_non_query_result().
+-spec clear_bindings(db(), reference()) -> sql_non_query_result().
 clear_bindings(Db, Ref) ->
     gen_server:call(Db, {clear_bindings, Ref}).
 
--spec finalize(atom(), reference()) -> sql_non_query_result().
+-spec finalize(db(), reference()) -> sql_non_query_result().
 finalize(Db, Ref) ->
     gen_server:call(Db, {finalize, Ref}).
 
--spec columns(atom(), reference()) -> sql_non_query_result().
+-spec columns(db(), reference()) -> sql_non_query_result().
 columns(Db, Ref) ->
     gen_server:call(Db, {columns, Ref}).
 
--spec prepare_timeout(atom(), iodata(), timeout()) -> {ok, reference()} | sqlite_error().
+-spec prepare_timeout(db(), iodata(), timeout()) -> {ok, reference()} | sqlite_error().
 prepare_timeout(Db, SQL, Timeout) ->
     gen_server:call(Db, {prepare, SQL}, Timeout).
 
--spec bind_timeout(atom(), reference(), sql_params(), timeout()) -> sql_non_query_result().
+-spec bind_timeout(db(), reference(), sql_params(), timeout()) -> sql_non_query_result().
 bind_timeout(Db, Ref, Params, Timeout) ->
     gen_server:call(Db, {bind, Ref, Params}, Timeout).
 
--spec next_timeout(atom(), reference(), timeout()) -> tuple() | done | sqlite_error().
+-spec next_timeout(db(), reference(), timeout()) -> tuple() | done | sqlite_error().
 next_timeout(Db, Ref, Timeout) ->
     gen_server:call(Db, {next, Ref}, Timeout).
 
--spec reset_timeout(atom(), reference(), timeout()) -> sql_non_query_result().
+-spec reset_timeout(db(), reference(), timeout()) -> sql_non_query_result().
 reset_timeout(Db, Ref, Timeout) ->
     gen_server:call(Db, {reset, Ref}, Timeout).
 
--spec clear_bindings_timeout(atom(), reference(), timeout()) -> sql_non_query_result().
+-spec clear_bindings_timeout(db(), reference(), timeout()) -> sql_non_query_result().
 clear_bindings_timeout(Db, Ref, Timeout) ->
     gen_server:call(Db, {clear_bindings, Ref}, Timeout).
 
--spec finalize_timeout(atom(), reference(), timeout()) -> sql_non_query_result().
+-spec finalize_timeout(db(), reference(), timeout()) -> sql_non_query_result().
 finalize_timeout(Db, Ref, Timeout) ->
     gen_server:call(Db, {finalize, Ref}, Timeout).
 
--spec columns_timeout(atom(), reference(), timeout()) -> sql_non_query_result().
+-spec columns_timeout(db(), reference(), timeout()) -> sql_non_query_result().
 columns_timeout(Db, Ref, Timeout) ->
     gen_server:call(Db, {columns, Ref}, Timeout).
 
@@ -313,7 +320,7 @@ create_table(Tbl, Columns) ->
 %%   Returns the result of the create table call.
 %% @end
 %%--------------------------------------------------------------------
--spec create_table(atom(), table_id(), table_info()) -> sql_non_query_result().
+-spec create_table(db(), table_id(), table_info()) -> sql_non_query_result().
 create_table(Db, Tbl, Columns) ->
     gen_server:call(Db, {create_table, Tbl, Columns}).
 
@@ -326,7 +333,7 @@ create_table(Db, Tbl, Columns) ->
 %%   Returns the result of the create table call.
 %% @end
 %%--------------------------------------------------------------------
--spec create_table_timeout(atom(), table_id(), table_info(), timeout()) -> sql_non_query_result().
+-spec create_table_timeout(db(), table_id(), table_info(), timeout()) -> sql_non_query_result().
 create_table_timeout(Db, Tbl, Columns, Timeout) ->
     gen_server:call(Db, {create_table, Tbl, Columns}, Timeout).
 
@@ -340,7 +347,7 @@ create_table_timeout(Db, Tbl, Columns, Timeout) ->
 %%   Returns the result of the create table call.
 %% @end
 %%--------------------------------------------------------------------
--spec create_table(atom(), table_id(), table_info(), table_constraints()) ->
+-spec create_table(db(), table_id(), table_info(), table_constraints()) ->
           sql_non_query_result().
 create_table(Db, Tbl, Columns, Constraints) ->
     gen_server:call(Db, {create_table, Tbl, Columns, Constraints}).
@@ -355,7 +362,7 @@ create_table(Db, Tbl, Columns, Constraints) ->
 %%   Returns the result of the create table call.
 %% @end
 %%--------------------------------------------------------------------
--spec create_table_timeout(atom(), table_id(), table_info(), table_constraints(), timeout()) ->
+-spec create_table_timeout(db(), table_id(), table_info(), table_constraints(), timeout()) ->
           sql_non_query_result().
 create_table_timeout(Db, Tbl, Columns, Constraints, Timeout) ->
     gen_server:call(Db, {create_table, Tbl, Columns, Constraints}, Timeout).
@@ -374,7 +381,7 @@ list_tables() ->
 %%   Returns a list of tables for Db.
 %% @end
 %%--------------------------------------------------------------------
--spec list_tables(atom()) -> [table_id()].
+-spec list_tables(db()) -> [table_id()].
 list_tables(Db) ->
     gen_server:call(Db, list_tables).
 
@@ -383,7 +390,7 @@ list_tables(Db) ->
 %%   Returns a list of tables for Db.
 %% @end
 %%--------------------------------------------------------------------
--spec list_tables_timeout(atom(), timeout()) -> [table_id()].
+-spec list_tables_timeout(db(), timeout()) -> [table_id()].
 list_tables_timeout(Db, Timeout) ->
     gen_server:call(Db, list_tables, Timeout).
 
@@ -401,7 +408,7 @@ table_info(Tbl) ->
 %%   Returns table schema for Tbl in Db.
 %% @end
 %%--------------------------------------------------------------------
--spec table_info(atom(), table_id()) -> table_info().
+-spec table_info(db(), table_id()) -> table_info().
 table_info(Db, Tbl) ->
     gen_server:call(Db, {table_info, Tbl}).
 
@@ -410,7 +417,7 @@ table_info(Db, Tbl) ->
 %%   Returns table schema for Tbl in Db.
 %% @end
 %%--------------------------------------------------------------------
--spec table_info_timeout(atom(), table_id(), timeout()) -> table_info().
+-spec table_info_timeout(db(), table_id(), timeout()) -> table_info().
 table_info_timeout(Db, Tbl, Timeout) ->
     gen_server:call(Db, {table_info, Tbl}, Timeout).
 
@@ -430,7 +437,7 @@ write(Tbl, Data) ->
 %%   same type as determined from table_info/3.
 %% @end
 %%--------------------------------------------------------------------
--spec write(atom(), table_id(), [{column_id(), sql_value()}]) -> sql_non_query_result().
+-spec write(db(), table_id(), [{column_id(), sql_value()}]) -> sql_non_query_result().
 write(Db, Tbl, Data) ->
     gen_server:call(Db, {write, Tbl, Data}).
 
@@ -440,7 +447,7 @@ write(Db, Tbl, Data) ->
 %%   same type as determined from table_info/3.
 %% @end
 %%--------------------------------------------------------------------
--spec write_timeout(atom(), table_id(), [{column_id(), sql_value()}], timeout()) ->
+-spec write_timeout(db(), table_id(), [{column_id(), sql_value()}], timeout()) ->
 		  sql_non_query_result().
 write_timeout(Db, Tbl, Data, Timeout) ->
     gen_server:call(Db, {write, Tbl, Data}, Timeout).
@@ -461,7 +468,7 @@ write_many(Tbl, Data) ->
 %%   must be of the same type as determined from table_info/3.
 %% @end
 %%--------------------------------------------------------------------
--spec write_many(atom(), table_id(), [[{column_id(), sql_value()}]]) -> [sql_result()].
+-spec write_many(db(), table_id(), [[{column_id(), sql_value()}]]) -> [sql_result()].
 write_many(Db, Tbl, Data) ->
     gen_server:call(Db, {write_many, Tbl, Data}).
 
@@ -471,7 +478,7 @@ write_many(Db, Tbl, Data) ->
 %%   must be of the same type as determined from table_info/3.
 %% @end
 %%--------------------------------------------------------------------
--spec write_many_timeout(atom(), table_id(), [[{column_id(), sql_value()}]], timeout()) ->
+-spec write_many_timeout(db(), table_id(), [[{column_id(), sql_value()}]], timeout()) ->
 		  [sql_result()].
 write_many_timeout(Db, Tbl, Data, Timeout) ->
     gen_server:call(Db, {write_many, Tbl, Data}, Timeout).
@@ -493,7 +500,7 @@ update(Tbl, {Key, Value}, Data) ->
 %%    matches the value in Key with Data.
 %% @end
 %%--------------------------------------------------------------------
--spec update(atom(), table_id(), {column_id(), sql_value()}, [{column_id(), sql_value()}]) ->
+-spec update(db(), table_id(), {column_id(), sql_value()}, [{column_id(), sql_value()}]) ->
           sql_non_query_result().
 update(Db, Tbl, {Key, Value}, Data) ->
   gen_server:call(Db, {update, Tbl, Key, Value, Data}).
@@ -504,7 +511,7 @@ update(Db, Tbl, {Key, Value}, Data) ->
 %%    matches the value in Key with Data.
 %% @end
 %%--------------------------------------------------------------------
--spec update_timeout(atom(), table_id(), {column_id(), sql_value()}, [{column_id(), sql_value()}], timeout()) ->
+-spec update_timeout(db(), table_id(), {column_id(), sql_value()}, [{column_id(), sql_value()}], timeout()) ->
           sql_non_query_result().
 update_timeout(Db, Tbl, {Key, Value}, Data, Timeout) ->
   gen_server:call(Db, {update, Tbl, Key, Value, Data}, Timeout).
@@ -514,7 +521,7 @@ update_timeout(Db, Tbl, {Key, Value}, Data, Timeout) ->
 %%   Reads all rows from Table in Db.
 %% @end
 %%--------------------------------------------------------------------
--spec read_all(atom(), table_id()) -> sql_result().
+-spec read_all(db(), table_id()) -> sql_result().
 read_all(Db, Tbl) ->
     gen_server:call(Db, {read, Tbl}).
 
@@ -523,7 +530,7 @@ read_all(Db, Tbl) ->
 %%   Reads all rows from Table in Db.
 %% @end
 %%--------------------------------------------------------------------
--spec read_all_timeout(atom(), table_id(), timeout()) -> sql_result().
+-spec read_all_timeout(db(), table_id(), timeout()) -> sql_result().
 read_all_timeout(Db, Tbl, Timeout) ->
     gen_server:call(Db, {read, Tbl}, Timeout).
 
@@ -532,7 +539,7 @@ read_all_timeout(Db, Tbl, Timeout) ->
 %%   Reads Columns in all rows from Table in Db.
 %% @end
 %%--------------------------------------------------------------------
--spec read_all(atom(), table_id(), [column_id()]) -> sql_result().
+-spec read_all(db(), table_id(), [column_id()]) -> sql_result().
 read_all(Db, Tbl, Columns) ->
     gen_server:call(Db, {read, Tbl, Columns}).
 
@@ -541,7 +548,7 @@ read_all(Db, Tbl, Columns) ->
 %%   Reads Columns in all rows from Table in Db.
 %% @end
 %%--------------------------------------------------------------------
--spec read_all_timeout(atom(), table_id(), [column_id()], timeout()) -> sql_result().
+-spec read_all_timeout(db(), table_id(), [column_id()], timeout()) -> sql_result().
 read_all_timeout(Db, Tbl, Columns, Timeout) ->
     gen_server:call(Db, {read, Tbl, Columns}, Timeout).
 
@@ -563,7 +570,7 @@ read(Tbl, Key) ->
 %%   as determined from table_info/3.
 %% @end
 %%--------------------------------------------------------------------
--spec read(atom(), table_id(), {column_id(), sql_value()}) -> sql_result().
+-spec read(db(), table_id(), {column_id(), sql_value()}) -> sql_result().
 read(Db, Tbl, {Column, Value}) ->
     gen_server:call(Db, {read, Tbl, Column, Value}).
 
@@ -574,7 +581,7 @@ read(Db, Tbl, {Column, Value}) ->
 %%    determined from table_info/3.
 %% @end
 %%--------------------------------------------------------------------
--spec read(atom(), table_id(), {column_id(), sql_value()}, [column_id()]) -> sql_result().
+-spec read(db(), table_id(), {column_id(), sql_value()}, [column_id()]) -> sql_result().
 read(Db, Tbl, {Key, Value}, Columns) ->
     gen_server:call(Db, {read, Tbl, Key, Value, Columns}).
 
@@ -585,7 +592,7 @@ read(Db, Tbl, {Key, Value}, Columns) ->
 %%   as determined from table_info/3.
 %% @end
 %%--------------------------------------------------------------------
--spec read_timeout(atom(), table_id(), {column_id(), sql_value()}, timeout()) -> sql_result().
+-spec read_timeout(db(), table_id(), {column_id(), sql_value()}, timeout()) -> sql_result().
 read_timeout(Db, Tbl, {Column, Value}, Timeout) ->
     gen_server:call(Db, {read, Tbl, Column, Value}, Timeout).
 
@@ -596,7 +603,7 @@ read_timeout(Db, Tbl, {Column, Value}, Timeout) ->
 %%    determined from table_info/3.
 %% @end
 %%--------------------------------------------------------------------
--spec read_timeout(atom(), table_id(), {column_id(), sql_value()}, [column_id()], timeout()) -> sql_result().
+-spec read_timeout(db(), table_id(), {column_id(), sql_value()}, [column_id()], timeout()) -> sql_result().
 read_timeout(Db, Tbl, {Key, Value}, Columns, Timeout) ->
     gen_server:call(Db, {read, Tbl, Key, Value, Columns}, Timeout).
 
@@ -618,7 +625,7 @@ delete(Tbl, Key) ->
 %%   Value must have the same type as determined from table_info/3.
 %% @end
 %%--------------------------------------------------------------------
--spec delete_timeout(atom(), table_id(), {column_id(), sql_value()}, timeout()) -> sql_non_query_result().
+-spec delete_timeout(db(), table_id(), {column_id(), sql_value()}, timeout()) -> sql_non_query_result().
 delete_timeout(Db, Tbl, Key, Timeout) ->
     gen_server:call(Db, {delete, Tbl, Key}, Timeout).
 
@@ -629,7 +636,7 @@ delete_timeout(Db, Tbl, Key, Timeout) ->
 %%   Value must have the same type as determined from table_info/3.
 %% @end
 %%--------------------------------------------------------------------
--spec delete(atom(), table_id(), {column_id(), sql_value()}) -> sql_non_query_result().
+-spec delete(db(), table_id(), {column_id(), sql_value()}) -> sql_non_query_result().
 delete(Db, Tbl, Key) ->
     gen_server:call(Db, {delete, Tbl, Key}).
 
@@ -647,7 +654,7 @@ drop_table(Tbl) ->
 %%   Drop the table Tbl from Db database.
 %% @end
 %%--------------------------------------------------------------------
--spec drop_table(atom(), table_id()) -> sql_non_query_result().
+-spec drop_table(db(), table_id()) -> sql_non_query_result().
 drop_table(Db, Tbl) ->
     gen_server:call(Db, {drop_table, Tbl}).
 
@@ -656,7 +663,7 @@ drop_table(Db, Tbl) ->
 %%   Drop the table Tbl from Db database.
 %% @end
 %%--------------------------------------------------------------------
--spec drop_table_timeout(atom(), table_id(), timeout()) -> sql_non_query_result().
+-spec drop_table_timeout(db(), table_id(), timeout()) -> sql_non_query_result().
 drop_table_timeout(Db, Tbl, Timeout) ->
     gen_server:call(Db, {drop_table, Tbl}, Timeout).
 
@@ -674,7 +681,7 @@ vacuum() ->
 %%   Vacuum the Db database.
 %% @end
 %%--------------------------------------------------------------------
--spec vacuum(atom()) -> sql_non_query_result().
+-spec vacuum(db()) -> sql_non_query_result().
 vacuum(Db) ->
     gen_server:call(Db, vacuum).
 
@@ -683,7 +690,7 @@ vacuum(Db) ->
 %%   Vacuum the Db database.
 %% @end
 %%--------------------------------------------------------------------
--spec vacuum_timeout(atom(), timeout()) -> sql_non_query_result().
+-spec vacuum_timeout(db(), timeout()) -> sql_non_query_result().
 vacuum_timeout(Db, Timeout) ->
     gen_server:call(Db, vacuum, Timeout).
 
@@ -693,7 +700,7 @@ vacuum_timeout(Db, Timeout) ->
 %% %%
 %% %% @end
 %% %%--------------------------------------------------------------------
-%% -spec create_function(atom(), atom(), function()) -> any().
+%% -spec create_function(db(), atom(), function()) -> any().
 %% create_function(Db, FunctionName, Function) ->
 %%     gen_server:call(Db, {create_function, FunctionName, Function}).
 
@@ -1169,6 +1176,10 @@ list_init([H|T]) -> [H|list_init(T)].
 %%     {no_on_conflict, NoOnConflictClause}.
 
 %%--------------------------------------------------------------------
+%% @type db() = atom() | pid()
+%% Functions which take databases accept either the name the database is registered under
+%% or the PID.
+%% @end
 %% @type sql_value() = null | number() | iodata() | {blob, binary()}.
 %%
 %% Values accepted in SQL statements are atom 'null', numbers,
