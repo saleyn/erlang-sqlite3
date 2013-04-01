@@ -54,7 +54,7 @@ Note that on Windows, `sqlite3.dll` usually won't be installed in the system-wid
 
 ## Example usage
 
-See tests `src/sqlite3_test.erl` for a starting point.
+See tests `test/sqlite3_test.erl` for a starting point.
 
 ## Authors
 
