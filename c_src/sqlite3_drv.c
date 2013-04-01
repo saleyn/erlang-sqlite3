@@ -49,7 +49,9 @@ static inline void free_ptr_list(ptr_list *list, void(* free_head)(void *));
 static inline int max(int a, int b);
 #endif
 static inline int sql_is_insert(const char *sql);
+#ifdef DEBUG
 static void fprint_dataset(FILE* log, ErlDrvTermData* dataset, int term_count);
+#endif
 static void debug_printf(FILE* log, const char *fmt, ...);
 
 // required because driver_free(_binary) are macros in Windows
@@ -1345,6 +1347,7 @@ static inline int sql_is_insert(const char *sql) {
   return 1;
 }
 
+#ifdef DEBUG
 static void fprint_dataset(FILE* log, ErlDrvTermData *dataset, int term_count) {
   int i = 0, stack_size = 0;
   ErlDrvUInt length;
@@ -1447,6 +1450,7 @@ static void fprint_dataset(FILE* log, ErlDrvTermData *dataset, int term_count) {
     fflush(log);
   }
 }
+#endif
 
 static void debug_printf(FILE* log, const char *fmt, ...) {
   va_list args;
