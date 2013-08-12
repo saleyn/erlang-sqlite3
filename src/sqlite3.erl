@@ -29,6 +29,7 @@
          columns_timeout/3]).
 -export([create_table/2, create_table/3, create_table/4, create_table_timeout/4,
          create_table_timeout/5]).
+-export([add_columns/2, add_columns/3]).
 -export([list_tables/0, list_tables/1, list_tables_timeout/2,
          table_info/1, table_info/2, table_info_timeout/3]).
 -export([write/2, write/3, write_timeout/4, write_many/2, write_many/3,
@@ -366,6 +367,34 @@ create_table(Db, Tbl, Columns, Constraints) ->
           sql_non_query_result().
 create_table_timeout(Db, Tbl, Columns, Constraints, Timeout) ->
     gen_server:call(Db, {create_table, Tbl, Columns, Constraints}, Timeout).
+
+
+%%--------------------------------------------------------------------
+%% @doc
+%%   Add columns to table structure
+%%   table structure is a list of {column name, column type} pairs.
+%%   e.g. [{name, text}, {age, integer}]
+%%
+%%   Returns the result of the create table call.
+%% @end
+%%--------------------------------------------------------------------
+-spec add_columns(table_id(), table_info()) -> sql_non_query_result().
+add_columns(Tbl, Columns) ->
+    add_columns(?MODULE, Tbl, Columns).
+
+%%--------------------------------------------------------------------
+%% @doc
+%%   Add columns to table structure
+%%   The table structure is a list of {column name, column type} pairs.
+%%   e.g. [{name, text}, {age, integer}]
+%%
+%%   Returns the result of the create table call.
+%% @end
+%%--------------------------------------------------------------------
+-spec add_columns(db(), table_id(), table_info()) -> sql_non_query_result().
+add_columns(Db, Tbl, Columns) ->
+    gen_server:call(Db, {add_columns, Tbl, Columns}).
+
 
 %%--------------------------------------------------------------------
 %% @doc

@@ -16,6 +16,7 @@
 -export([value_to_sql/1, value_to_sql_unsafe/1, sql_to_value/1, escape/1, bin_to_hex/1]).
 -export([write_value_sql/1, write_col_sql/1]).
 -export([create_table_sql/2, create_table_sql/3, drop_table_sql/1]). 
+-export([add_columns_sql/2]).
 -export([write_sql/2, update_sql/4, update_set_sql/1, delete_sql/3]).
 -export([read_sql/1, read_sql/2, read_sql/3, read_sql/4, read_cols_sql/1]).
 
@@ -202,6 +203,16 @@ create_table_sql(Tbl, Columns, TblConstraints) ->
      map_intersperse(fun column_sql_for_create_table/1, Columns, ", "), ", ",
      table_constraint_sql(TblConstraints), 
      ", CHECK ('", Type, "'='", Type, "'));"].
+
+%%--------------------------------------------------------------------
+%% @doc Generates a alter table stmt in SQL.
+%% @end
+%%--------------------------------------------------------------------
+-spec add_columns_sql(table_id(),table_info()) -> iolist().
+add_columns_sql(Tbl, Columns) ->
+    {_, TName} = encode_table_id(Tbl),
+    ["ALTER TABLE ", TName, " ADD COLUMN ",
+     map_intersperse(fun column_sql_for_create_table/1, Columns, ", "),";"].
 
 %%--------------------------------------------------------------------
 %% @doc 
