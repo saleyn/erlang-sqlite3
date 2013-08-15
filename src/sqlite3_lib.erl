@@ -77,6 +77,8 @@ value_to_sql_unsafe(X) ->
     case X of
         _ when is_integer(X)   -> integer_to_list(X);
         _ when is_float(X)     -> float_to_list(X);
+        true -> "1";
+        false -> "0";
         undefined  -> "NULL";
         ?NULL_ATOM -> "NULL";
         {blob, Blob} -> ["x'", bin_to_hex(Blob), $'];
@@ -97,6 +99,8 @@ value_to_sql(X) ->
     case X of
         _ when is_integer(X)   -> integer_to_list(X);
         _ when is_float(X)     -> float_to_list(X);
+        true -> "1";
+        false -> "0";
         undefined  -> "NULL";
         ?NULL_ATOM -> "NULL";
         {blob, Blob} -> ["x'", bin_to_hex(Blob), $'];
