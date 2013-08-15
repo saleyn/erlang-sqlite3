@@ -838,6 +838,13 @@ handle_call({sql_bind_and_exec, SQL, Params}, _From, State) ->
 handle_call({sql_exec_script, SQL}, _From, State) ->
     Reply = do_sql_exec_script(SQL, State),
     {reply, Reply, State};
+handle_call({add_columns, Tbl, Columns}, _From, State) ->
+    try sqlite3_lib:add_columns_sql(Tbl, Columns) of
+        SQL -> do_handle_call_sql_exec(SQL, State)
+    catch
+        _:Exception ->
+            {reply, {error, Exception}, State}
+    end;
 handle_call({create_table, Tbl, Columns}, _From, State) ->
     try sqlite3_lib:create_table_sql(Tbl, Columns) of
         SQL -> do_handle_call_sql_exec(SQL, State)
