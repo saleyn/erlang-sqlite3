@@ -148,9 +148,9 @@ static void stop(ErlDrvData handle) {
 }
 
 // Handle input from Erlang VM
-static int control(
+static ErlDrvSSizeT control(
     ErlDrvData drv_data, unsigned int command, char *buf,
-    int len, char **rbuf, int rlen) {
+    ErlDrvSizeT len, char **rbuf, ErlDrvSizeT rlen) {
   sqlite3_drv_t* driver_data = (sqlite3_drv_t*) drv_data;
   switch (command) {
   case CMD_SQL_EXEC:

@@ -97,8 +97,8 @@ typedef struct async_sqlite3_command {
 
 static ErlDrvData start(ErlDrvPort port, char* cmd);
 static void stop(ErlDrvData handle);
-static int control(ErlDrvData drv_data, unsigned int command, char *buf, 
-                   int len, char **rbuf, int rlen);
+static ErlDrvSSizeT control(ErlDrvData drv_data, unsigned int command, char *buf,
+                   ErlDrvSizeT len, char **rbuf, ErlDrvSizeT rlen);
 static int sql_exec(sqlite3_drv_t *drv, char *buf, int len);
 static int sql_bind_and_exec(sqlite3_drv_t *drv, char *buf, int len);
 static int sql_exec_script(sqlite3_drv_t *drv, char *buf, int len);
