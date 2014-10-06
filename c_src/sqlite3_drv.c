@@ -231,6 +231,7 @@ static inline int output_error(
   dataset[11] = ERL_DRV_TUPLE;
   dataset[12] = 2;
   driver_output_term(drv->port, dataset, term_count);
+  driver_free(dataset);
   return 0;
 }
 
@@ -1313,11 +1314,9 @@ static inline ptr_list *add_to_ptr_list(ptr_list *list, void *value_ptr) {
   new_node->head = value_ptr;
   new_node->tail = NULL;
   if (list) {
-    list->tail = new_node;
-    return list;
-  } else {
-    return new_node;
+    new_node->tail = list;
   }
+  return new_node;
 }
 
 static inline void free_ptr_list(ptr_list *list, void(* free_head)(void *)) {
