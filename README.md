@@ -36,9 +36,11 @@ If you want to use erlang-sqlite3 on an embedded device, it can be cross-compile
 
 2. `nmake`.
 
-## DLL search path
+### Potential compilation problems
 
-Note that on Windows, `sqlite3.dll` usually won't be installed in the system-wide DLL search path. In this case, it should be placed in the working directory of your application.
+* On Windows, `sqlite3.dll` usually won't be installed in the system-wide DLL search path. In this case, it should be placed in the working directory of your application.
+
+* If SQLite was built with `SQLITE_OMIT_LOAD_EXTENSION` option, you'll need to undefine `ERLANG_SQLITE3_LOAD_EXTENSION` macro in <c_src/sqlite3_drv.h>.
 
 ## Running the test suite
 
