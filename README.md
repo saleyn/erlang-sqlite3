@@ -4,6 +4,8 @@ This library allows you to work with SQLite3 databases from Erlang.
 
 It is compatible with Windows and Linux, and should probably work on other OSes as well.
 
+[![Build Status](https://travis-ci.org/alexeyr/erlang-sqlite3.svg?branch=master)](https://travis-ci.org/alexeyr/erlang-sqlite3)
+
 ## Requirements
 
 Erlang/OTP R16B or 17.x is required, and SQLite 3 minimum version is 3.6.1. See R14B branch for older Erlang versions.
