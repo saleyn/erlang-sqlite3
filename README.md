@@ -4,7 +4,7 @@ This library allows you to work with SQLite3 databases from Erlang.
 
 It is compatible with Windows and Linux, and should probably work on other OSes as well.
 
-[![Build Status](https://travis-ci.org/alexeyr/erlang-sqlite3.svg?branch=master)](https://travis-ci.org/alexeyr/erlang-sqlite3)
+[![Build Status](https://travis-ci.org/alexeyr/erlang-sqlite3.svg?branch=R14B)](https://travis-ci.org/alexeyr/erlang-sqlite3)
 
 ## Requirements
 
