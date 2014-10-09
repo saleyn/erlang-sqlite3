@@ -148,9 +148,9 @@ static void stop(ErlDrvData handle) {
 }
 
 // Handle input from Erlang VM
-static ErlDrvSSizeT control(
+static int control(
     ErlDrvData drv_data, unsigned int command, char *buf,
-    ErlDrvSizeT len, char **rbuf, ErlDrvSizeT rlen) {
+    int len, char **rbuf, int rlen) {
   sqlite3_drv_t* driver_data = (sqlite3_drv_t*) drv_data;
   switch (command) {
   case CMD_SQL_EXEC:
@@ -230,7 +230,7 @@ static inline int output_error(
   term_count += 2;
   dataset[11] = ERL_DRV_TUPLE;
   dataset[12] = 2;
-  erl_drv_output_term(dataset[1], dataset, term_count);
+  driver_output_term(drv->port, dataset, term_count);
   driver_free(dataset);
   return 0;
 }
@@ -246,7 +246,7 @@ static inline int output_ok(sqlite3_drv_t *drv) {
       ERL_DRV_ATOM, drv->atom_ok,
       ERL_DRV_TUPLE, 2
   };
-  return erl_drv_output_term(spec[1], spec, sizeof(spec) / sizeof(spec[0]));
+  return driver_output_term(drv->port, spec, sizeof(spec) / sizeof(spec[0]));
 }
 
 static int enable_load_extension(sqlite3_drv_t* drv, char *buf, int len) {
@@ -1070,7 +1070,7 @@ static void ready_async(ErlDrvData drv_data, ErlDrvThreadData thread_data) {
       (async_sqlite3_command *) thread_data;
   sqlite3_drv_t *drv = async_command->driver_data;
 
-  int res = erl_drv_output_term(driver_mk_port(drv->port),
+  int res = driver_output_term(drv->port,
                                async_command->dataset,
                                async_command->term_count);
   (void) res; // suppress unused warning
@@ -1115,7 +1115,7 @@ static int prepare(sqlite3_drv_t *drv, char *command, int command_size) {
   spec[3] = drv->prepared_count - 1;
   spec[4] = ERL_DRV_TUPLE;
   spec[5] = 2;
-  return erl_drv_output_term(spec[1], spec, sizeof(spec) / sizeof(spec[0]));
+  return driver_output_term(drv->port, spec, sizeof(spec) / sizeof(spec[0]));
 }
 
 static int prepared_bind(sqlite3_drv_t *drv, char *buffer, int buffer_size) {
@@ -1153,7 +1153,7 @@ static int prepared_columns(sqlite3_drv_t *drv, char *buffer, int buffer_size) {
   long long_prepared_index;
   int index = 0, term_count = 0, term_allocated = 0, column_count;
   sqlite3_stmt *statement;
-  ErlDrvTermData *dataset = NULL, port;
+  ErlDrvTermData *dataset = NULL;
   ptr_list* ptrs = NULL;
 
   ei_decode_version(buffer, &index, NULL);
@@ -1176,9 +1176,8 @@ static int prepared_columns(sqlite3_drv_t *drv, char *buffer, int buffer_size) {
     term_allocated = max(term_count, term_allocated*2);
     dataset = driver_realloc(dataset, sizeof(ErlDrvTermData) * term_allocated);
   }
-  port = driver_mk_port(drv->port);
   dataset[term_count - 4] = ERL_DRV_PORT;
-  dataset[term_count - 3] = port;
+  dataset[term_count - 3] = driver_mk_port(drv->port);
 
   column_count = sqlite3_column_count(statement);
 
@@ -1187,7 +1186,7 @@ static int prepared_columns(sqlite3_drv_t *drv, char *buffer, int buffer_size) {
   dataset[term_count - 2] = ERL_DRV_TUPLE;
   dataset[term_count - 1] = 2;
 
-  erl_drv_output_term(port, dataset, term_count);
+  driver_output_term(drv->port, dataset, term_count);
   free_ptr_list(ptrs, driver_free_fun);
   return 0;
 }
@@ -1307,7 +1306,7 @@ static int unknown(sqlite3_drv_t *drv, char *command, int command_size) {
       ERL_DRV_ATOM, drv->atom_unknown_cmd,
       ERL_DRV_TUPLE, 4
   };
-  return erl_drv_output_term(spec[1], spec, sizeof(spec) / sizeof(spec[0]));
+  return driver_output_term(drv->port, spec, sizeof(spec) / sizeof(spec[0]));
 }
 
 static inline ptr_list *add_to_ptr_list(ptr_list *list, void *value_ptr) {
