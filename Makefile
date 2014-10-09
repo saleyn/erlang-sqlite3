@@ -14,10 +14,17 @@ debug:
 	$(REBAR_COMPILE) -C rebar.debug.config
 
 tests:
-	$(REBAR) eunit
+	mkdir .eunit
+	cp sqlite3.dll .eunit
+	$(REBAR_COMPILE) eunit
 
 clean:
-	del /Q deps ebin priv doc\* .eunit c_src\*.o
+	if exist deps del /Q deps
+	if exist ebin del /Q ebin
+	if exist priv del /Q priv
+	if exist doc\* del /Q doc\*
+	if exist .eunit del /Q .eunit
+	if exist c_src\*.o del /Q c_src\*.o
 
 docs:
 	$(REBAR_COMPILE) doc
