@@ -8,7 +8,7 @@ It is compatible with Windows and Linux, and should probably work on other OSes 
 
 ## Requirements
 
-Erlang/OTP R16B or 17.x is required, and SQLite 3 minimum version is 3.6.1. See R14B branch for older Erlang versions.
+Erlang/OTP R14B is required, and SQLite 3 minimum version is 3.6.1.
 
 ## Compiling
 
