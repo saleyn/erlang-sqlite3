@@ -38,11 +38,13 @@ If you want to use erlang-sqlite3 on an embedded device, it can be cross-compile
 
    to create the import library `sqlite3.lib`. In `rebar.config`, set the correct paths in tuples `{"win32", "CFLAGS", "/Idirectory/containing/sqlite3.h/ /Ic_src /W4 /wd4100 /wd4204"}` and `{"win32", "LDFLAGS", "/path/to/sqlite3.lib"}`.
 
-2. `nmake`.
+2. Run `nmake` if MSVC tools (`cl`, `link`, etc.) are already on the path. Otherwise, they should be make available by calling `vcvars32.bat` (see `build_port_win.bat` for the standard path).
 
 ### Potential compilation problems
 
 * On Windows, `sqlite3.dll` usually won't be installed in the system-wide DLL search path. In this case, it should be placed in the working directory of your application.
+
+* If Erlang is 64-bit, so must be `sqlite3.dll` and MSVC (use `vcvars64.bat` instead of `vcvars32.bat`).
 
 * If SQLite was built with `SQLITE_OMIT_LOAD_EXTENSION` option, you'll need to undefine `ERLANG_SQLITE3_LOAD_EXTENSION` macro in <c_src/sqlite3_drv.h>.
 
