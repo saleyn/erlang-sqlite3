@@ -852,21 +852,21 @@ static void sql_exec_async(void *_async_command) {
     end = async_command->end;
 
     while ((rest < end) && !(async_command->error_code)) {
-      if (statement) {
-        sqlite3_finalize(statement);
-      }
       result = sqlite3_prepare_v2(drv->db, rest, end - rest, &statement, &rest);
       if (result != SQLITE_OK) {
+        // sqlite doc says statement will be NULL here, so no need to finalize it
         num_statements++;
         return_error(drv, result, sqlite3_errmsg(drv->db), &dataset,
                      &term_count, &term_allocated, &async_command->error_code);
         break;
       } else if (statement == NULL) {
+        // the script has completed
         break;
       } else {
         num_statements++;
         result = sql_exec_one_statement(statement, async_command, &term_count,
                                         &term_allocated, &dataset);
+        sqlite3_finalize(statement);
         if (result) {
           break;
         }
