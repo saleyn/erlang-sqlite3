@@ -38,7 +38,7 @@ static void append_to_dataset(int n, ErlDrvTermData* dataset, int term_count, ..
   va_end(new_terms);
 }
 
-static ErlDrvEntry basic_driver_entry = {
+static ErlDrvEntry sqlite3_driver_entry = {
     NULL, /* init */
     start, /* startup (defined below) */
     stop, /* shutdown (defined below) */
@@ -64,8 +64,8 @@ static ErlDrvEntry basic_driver_entry = {
     NULL /* stop_select */
 };
 
-DRIVER_INIT(basic_driver) {
-  return &basic_driver_entry;
+DRIVER_INIT(sqlite3_driver) {
+  return &sqlite3_driver_entry;
 }
 
 static inline ptr_list *add_to_ptr_list(ptr_list *list, void *value_ptr);
