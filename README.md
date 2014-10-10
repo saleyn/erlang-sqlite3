@@ -6,6 +6,8 @@ It is compatible with Windows and Linux, and should probably work on other OSes 
 
 [![Build Status](https://travis-ci.org/alexeyr/erlang-sqlite3.svg?branch=R14B)](https://travis-ci.org/alexeyr/erlang-sqlite3)
 
+See also [esqlite](https://github.com/mmzeeman/esqlite) for an alternative library.
+
 ## Requirements
 
 Erlang/OTP R14B is required, and SQLite 3 minimum version is 3.6.1.

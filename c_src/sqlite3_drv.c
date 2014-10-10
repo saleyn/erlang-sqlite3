@@ -433,7 +433,7 @@ static int bind_parameters(
       return output_error(drv, SQLITE_ERROR,
                           "error while binding parameters");
     }
-    acc_string = driver_alloc(sizeof(char*) * (*p_size + 1));
+    acc_string = driver_alloc(sizeof(char) * (*p_size + 1));
     ei_decode_string(buffer, p_index, acc_string);
     for (param_index = 1; param_index <= *p_size; param_index++) {
       sqlite3_bind_int(statement, param_index, (int) (unsigned char) acc_string[param_index - 1]);
@@ -530,7 +530,7 @@ static void get_columns(
   for (i = 0; i < column_count; i++) {
     const char *column_name = sqlite3_column_name(statement, i);
     size_t column_name_length = strlen(column_name);
-    char *column_name_copy = driver_alloc(sizeof(char *) * (column_name_length + 1));
+    char *column_name_copy = driver_alloc(sizeof(char) * (column_name_length + 1));
     strcpy(column_name_copy, column_name);
     *p_ptrs = add_to_ptr_list(*p_ptrs, column_name_copy);
     TRACE((drv->log, "Column: %s\n", column_name_copy));
@@ -852,21 +852,21 @@ static void sql_exec_async(void *_async_command) {
     end = async_command->end;
 
     while ((rest < end) && !(async_command->error_code)) {
-      if (statement) {
-        sqlite3_finalize(statement);
-      }
       result = sqlite3_prepare_v2(drv->db, rest, end - rest, &statement, &rest);
       if (result != SQLITE_OK) {
+        // sqlite doc says statement will be NULL here, so no need to finalize it
         num_statements++;
         return_error(drv, result, sqlite3_errmsg(drv->db), &dataset,
                      &term_count, &term_allocated, &async_command->error_code);
         break;
       } else if (statement == NULL) {
+        // the script has completed
         break;
       } else {
         num_statements++;
         result = sql_exec_one_statement(statement, async_command, &term_count,
                                         &term_allocated, &dataset);
+        sqlite3_finalize(statement);
         if (result) {
           break;
         }

@@ -52,7 +52,8 @@ all_test_() ->
       ?FuncTest(acc_string_encoding),
       ?FuncTest(large_offset),
       ?FuncTest(issue13),
-      ?FuncTest(enable_load_extension)]}.
+      ?FuncTest(enable_load_extension),
+      ?FuncTest(issue23)]}.
 
 anonymous_test() ->
     {ok, Pid} = sqlite3:open(anonymous, []),
@@ -338,6 +339,15 @@ issue13() ->
 
 enable_load_extension() ->
     ?assertEqual(ok, sqlite3:enable_load_extension(ct, 1)).
+
+issue23() ->
+    sqlite3:open(issue23, [in_memory]),
+    ok = sqlite3:create_table(issue23, issue23, [{issue23, integer}]),
+    SingleStmt = "SELECT * FROM issue23;",
+    SingleStmtResult = [{columns, ["issue23"]}, {rows, []}],
+    ScriptResult = sqlite3:sql_exec_script(issue23,[SingleStmt ++ SingleStmt]),
+    ?assertEqual([SingleStmtResult, SingleStmtResult], ScriptResult),
+    sqlite3:close(issue23).
 
 % create, read, update, delete
 %%====================================================================
