@@ -16,7 +16,7 @@ debug:
 tests:
 	if not exist .eunit mkdir .eunit
 	cp sqlite3.dll .eunit
-	$(REBAR_COMPILE) eunit
+	$(REBAR_COMPILE) skip_deps=true eunit
 
 clean:
 	if exist deps del /Q deps

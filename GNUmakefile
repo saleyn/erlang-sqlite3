@@ -14,7 +14,7 @@ compile:
 	$(REBAR_COMPILE)
 	
 test:
-	$(REBAR_COMPILE) eunit
+	$(REBAR_COMPILE) skip_deps=true eunit
 
 clean:
 	-rm -rf deps ebin priv/*.so doc/* .eunit/* c_src/*.o config.tmp
