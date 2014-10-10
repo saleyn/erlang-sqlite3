@@ -1,4 +1,5 @@
 #include "sqlite3_drv.h"
+#include <stdarg.h>
 
 // MSVC needs "__inline" instead of "inline" in C-source files.
 #if defined(_MSC_VER)
@@ -23,6 +24,18 @@ static int DEBUG = 0;
 #define EXTEND_DATASET_DIRECT(n) EXTEND_DATASET(n, term_count, term_allocated, dataset)
 
 #define EXTEND_DATASET_PTR(n) EXTEND_DATASET(n, *term_count_p, *term_allocated_p, *dataset_p)
+
+static void append_to_dataset(int n, ErlDrvTermData* dataset, int term_count, ...) {
+  int i;
+  va_list new_terms;
+  va_start(new_terms, term_count);
+
+  for (i = -n; i < 0; i++) {
+    dataset[term_count + i] = va_arg(new_terms, ErlDrvTermData);
+  }
+
+  va_end(new_terms);
+}
 
 static ErlDrvEntry basic_driver_entry = {
     NULL, /* init */
@@ -211,15 +224,11 @@ static inline int return_error(
     *error_code_p = error_code;
   }
   EXTEND_DATASET_PTR(9);
-  (*dataset_p)[*term_count_p - 9] = ERL_DRV_ATOM;
-  (*dataset_p)[*term_count_p - 8] = drv->atom_error;
-  (*dataset_p)[*term_count_p - 7] = ERL_DRV_INT;
-  (*dataset_p)[*term_count_p - 6] = error_code;
-  (*dataset_p)[*term_count_p - 5] = ERL_DRV_STRING;
-  (*dataset_p)[*term_count_p - 4] = (ErlDrvTermData) error;
-  (*dataset_p)[*term_count_p - 3] = strlen(error);
-  (*dataset_p)[*term_count_p - 2] = ERL_DRV_TUPLE;
-  (*dataset_p)[*term_count_p - 1] = 3;
+  append_to_dataset(9, *dataset_p, *term_count_p,
+    ERL_DRV_ATOM, drv->atom_error,
+    ERL_DRV_INT, (ErlDrvTermData) error_code,
+    ERL_DRV_STRING, (ErlDrvTermData) error, (ErlDrvTermData) strlen(error),
+    ERL_DRV_TUPLE, (ErlDrvTermData) 3);
 //  int i;
 //  for (i = 0; i < *term_count_p; i++) {
 //	  printf("%d\n", (*dataset_p)[i]);
@@ -631,17 +640,13 @@ static int sql_exec_one_statement(
 
   if (column_count > 0) {
     EXTEND_DATASET_PTR(2);
-    (*dataset_p)[*term_count_p - 2] = ERL_DRV_ATOM;
-    (*dataset_p)[*term_count_p - 1] = drv->atom_columns;
+    append_to_dataset(2, *dataset_p, *term_count_p, ERL_DRV_ATOM, drv->atom_columns);
     base_term_count = *term_count_p;
     get_columns(
         drv, statement, column_count, base_term_count, term_count_p, term_allocated_p, ptrs_p, dataset_p);
     EXTEND_DATASET_PTR(4);
-    (*dataset_p)[base_term_count + column_count * 3 + 3] = ERL_DRV_TUPLE;
-    (*dataset_p)[base_term_count + column_count * 3 + 4] = 2;
-
-    (*dataset_p)[base_term_count + column_count * 3 + 5] = ERL_DRV_ATOM;
-    (*dataset_p)[base_term_count + column_count * 3 + 6] = drv->atom_rows;
+    append_to_dataset(4, *dataset_p, base_term_count + column_count * 3 + 7,
+      ERL_DRV_TUPLE, (ErlDrvTermData) 2, ERL_DRV_ATOM, drv->atom_rows);
   }
 
   TRACE((drv->log, "Exec: %s\n", sqlite3_sql(statement)));
@@ -656,8 +661,7 @@ static int sql_exec_one_statement(
         *ptrs_p = add_to_ptr_list(*ptrs_p, int64_ptr);
 
         EXTEND_DATASET_PTR(2);
-        (*dataset_p)[*term_count_p - 2] = ERL_DRV_INT64;
-        (*dataset_p)[*term_count_p - 1] = (ErlDrvTermData) int64_ptr;
+        append_to_dataset(2, *dataset_p, *term_count_p, ERL_DRV_INT64, (ErlDrvTermData) int64_ptr);
         break;
       }
       case SQLITE_FLOAT: {
@@ -666,8 +670,7 @@ static int sql_exec_one_statement(
         *ptrs_p = add_to_ptr_list(*ptrs_p, float_ptr);
 
         EXTEND_DATASET_PTR(2);
-        (*dataset_p)[*term_count_p - 2] = ERL_DRV_FLOAT;
-        (*dataset_p)[*term_count_p - 1] = (ErlDrvTermData) float_ptr;
+        append_to_dataset(2, *dataset_p, *term_count_p, ERL_DRV_FLOAT, (ErlDrvTermData) float_ptr);
         break;
       }
       case SQLITE_BLOB: {
@@ -679,14 +682,10 @@ static int sql_exec_one_statement(
         *binaries_p = add_to_ptr_list(*binaries_p, binary);
 
         EXTEND_DATASET_PTR(8);
-        (*dataset_p)[*term_count_p - 8] = ERL_DRV_ATOM;
-        (*dataset_p)[*term_count_p - 7] = drv->atom_blob;
-        (*dataset_p)[*term_count_p - 6] = ERL_DRV_BINARY;
-        (*dataset_p)[*term_count_p - 5] = (ErlDrvTermData) binary;
-        (*dataset_p)[*term_count_p - 4] = bytes;
-        (*dataset_p)[*term_count_p - 3] = 0;
-        (*dataset_p)[*term_count_p - 2] = ERL_DRV_TUPLE;
-        (*dataset_p)[*term_count_p - 1] = 2;
+        append_to_dataset(8, *dataset_p, *term_count_p,
+          ERL_DRV_ATOM, drv->atom_blob,
+          ERL_DRV_BINARY, (ErlDrvTermData) binary, (ErlDrvTermData) bytes, (ErlDrvTermData) 0,
+          ERL_DRV_TUPLE, (ErlDrvTermData) 2);
         break;
       }
       case SQLITE_TEXT: {
@@ -698,23 +697,19 @@ static int sql_exec_one_statement(
         *binaries_p = add_to_ptr_list(*binaries_p, binary);
 
         EXTEND_DATASET_PTR(4);
-        (*dataset_p)[*term_count_p - 4] = ERL_DRV_BINARY;
-        (*dataset_p)[*term_count_p - 3] = (ErlDrvTermData) binary;
-        (*dataset_p)[*term_count_p - 2] = bytes;
-        (*dataset_p)[*term_count_p - 1] = 0;
+        append_to_dataset(4, *dataset_p, *term_count_p,
+          ERL_DRV_BINARY, (ErlDrvTermData) binary, (ErlDrvTermData) bytes, (ErlDrvTermData) 0);
         break;
       }
       case SQLITE_NULL: {
         EXTEND_DATASET_PTR(2);
-        (*dataset_p)[*term_count_p - 2] = ERL_DRV_ATOM;
-        (*dataset_p)[*term_count_p - 1] = drv->atom_null;
+        append_to_dataset(2, *dataset_p, *term_count_p, ERL_DRV_ATOM, drv->atom_null);
         break;
       }
       }
     }
     EXTEND_DATASET_PTR(2);
-    (*dataset_p)[*term_count_p - 2] = ERL_DRV_TUPLE;
-    (*dataset_p)[*term_count_p - 1] = column_count;
+    append_to_dataset(2, *dataset_p, *term_count_p, ERL_DRV_TUPLE, (ErlDrvTermData) column_count);
 
     row_count++;
   }
@@ -733,12 +728,9 @@ static int sql_exec_one_statement(
 
   if (column_count > 0) {
     EXTEND_DATASET_PTR(5);
-    (*dataset_p)[*term_count_p - 5] = ERL_DRV_NIL;
-    (*dataset_p)[*term_count_p - 4] = ERL_DRV_LIST;
-    (*dataset_p)[*term_count_p - 3] = row_count + 1;
-
-    (*dataset_p)[*term_count_p - 2] = ERL_DRV_TUPLE;
-    (*dataset_p)[*term_count_p - 1] = 2;
+    append_to_dataset(5, *dataset_p, *term_count_p,
+      ERL_DRV_NIL, ERL_DRV_LIST, (ErlDrvTermData) (row_count + 1),
+      ERL_DRV_TUPLE, (ErlDrvTermData) 2);
 
     if (has_error) {
       return_error(drv, next_row, sqlite3_errmsg(drv->db),
@@ -747,25 +739,20 @@ static int sql_exec_one_statement(
     }
 
     EXTEND_DATASET_PTR(3);
-
-    (*dataset_p)[*term_count_p - 3] = ERL_DRV_NIL;
-    (*dataset_p)[*term_count_p - 2] = ERL_DRV_LIST;
-    (*dataset_p)[*term_count_p - 1] = 3 + has_error;
+    append_to_dataset(3, *dataset_p, *term_count_p,
+      ERL_DRV_NIL, ERL_DRV_LIST, (ErlDrvTermData) (3 + has_error));
   } else if (sql_is_insert(sqlite3_sql(statement))) {
     ErlDrvSInt64 *rowid_ptr = driver_alloc(sizeof(ErlDrvSInt64));
     *rowid_ptr = (ErlDrvSInt64) sqlite3_last_insert_rowid(drv->db);
     *ptrs_p = add_to_ptr_list(*ptrs_p, rowid_ptr);
     EXTEND_DATASET_PTR(6);
-    (*dataset_p)[*term_count_p - 6] = ERL_DRV_ATOM;
-    (*dataset_p)[*term_count_p - 5] = drv->atom_rowid;
-    (*dataset_p)[*term_count_p - 4] = ERL_DRV_INT64;
-    (*dataset_p)[*term_count_p - 3] = (ErlDrvTermData) rowid_ptr;
-    (*dataset_p)[*term_count_p - 2] = ERL_DRV_TUPLE;
-    (*dataset_p)[*term_count_p - 1] = 2;
+    append_to_dataset(6, *dataset_p, *term_count_p,
+      ERL_DRV_ATOM, drv->atom_rowid,
+      ERL_DRV_INT64, (ErlDrvTermData) rowid_ptr,
+      ERL_DRV_TUPLE, (ErlDrvTermData) 2);
   } else {
     EXTEND_DATASET_PTR(2);
-    (*dataset_p)[*term_count_p - 2] = ERL_DRV_ATOM;
-    (*dataset_p)[*term_count_p - 1] = drv->atom_ok;
+    append_to_dataset(2, *dataset_p, *term_count_p, ERL_DRV_ATOM, drv->atom_ok);
   }
 
   TRACE((drv->log, "Total term count: %p %d, rows count: %dx%d\n", statement, *term_count_p, column_count, row_count));
@@ -789,8 +776,7 @@ static void sql_exec_async(void *_async_command) {
   sqlite3_drv_t *drv = async_command->driver_data;
 
   EXTEND_DATASET_DIRECT(2);
-  dataset[term_count - 2] = ERL_DRV_PORT;
-  dataset[term_count - 1] = driver_mk_port(drv->port);
+  append_to_dataset(2, dataset, term_count, ERL_DRV_PORT, driver_mk_port(drv->port));
 
   switch (async_command->type) {
   case t_stmt:
@@ -825,14 +811,12 @@ static void sql_exec_async(void *_async_command) {
     }
 
     EXTEND_DATASET_DIRECT(3);
-    dataset[term_count - 3] = ERL_DRV_NIL;
-    dataset[term_count - 2] = ERL_DRV_LIST;
-    dataset[term_count - 1] = num_statements + 1;
+    append_to_dataset(3, dataset, term_count,
+      ERL_DRV_NIL, ERL_DRV_LIST, (ErlDrvTermData) (num_statements + 1));
   }
 
   EXTEND_DATASET_DIRECT(2);
-  dataset[term_count - 2] = ERL_DRV_TUPLE;
-  dataset[term_count - 1] = 2;
+  append_to_dataset(2, dataset, term_count, ERL_DRV_TUPLE, (ErlDrvTermData) 2);
 
   // print_dataset(dataset, term_count);
 
@@ -861,8 +845,7 @@ static void sql_step_async(void *_async_command) {
   case SQLITE_ROW:
     column_count = sqlite3_column_count(statement);
     EXTEND_DATASET_DIRECT(2);
-    dataset[term_count - 2] = ERL_DRV_PORT;
-    dataset[term_count - 1] = driver_mk_port(drv->port);
+    append_to_dataset(2, dataset, term_count, ERL_DRV_PORT, driver_mk_port(drv->port));
 
     for (i = 0; i < column_count; i++) {
       TRACE((drv->log, "Column %d type: %d\n", i, sqlite3_column_type(statement, i)));
@@ -873,8 +856,7 @@ static void sql_step_async(void *_async_command) {
         ptrs = add_to_ptr_list(ptrs, int64_ptr);
 
         EXTEND_DATASET_DIRECT(2);
-        dataset[term_count - 2] = ERL_DRV_INT64;
-        dataset[term_count - 1] = (ErlDrvTermData) int64_ptr;
+        append_to_dataset(2, dataset, term_count, ERL_DRV_INT64, (ErlDrvTermData) int64_ptr);
         break;
       }
       case SQLITE_FLOAT: {
@@ -883,8 +865,7 @@ static void sql_step_async(void *_async_command) {
         ptrs = add_to_ptr_list(ptrs, float_ptr);
 
         EXTEND_DATASET_DIRECT(2);
-        dataset[term_count - 2] = ERL_DRV_FLOAT;
-        dataset[term_count - 1] = (ErlDrvTermData) float_ptr;
+        append_to_dataset(2, dataset, term_count, ERL_DRV_FLOAT, (ErlDrvTermData) float_ptr);
         break;
       }
       case SQLITE_BLOB: {
@@ -896,14 +877,10 @@ static void sql_step_async(void *_async_command) {
         binaries = add_to_ptr_list(binaries, binary);
 
         EXTEND_DATASET_DIRECT(8);
-        dataset[term_count - 8] = ERL_DRV_ATOM;
-        dataset[term_count - 7] = drv->atom_blob;
-        dataset[term_count - 6] = ERL_DRV_BINARY;
-        dataset[term_count - 5] = (ErlDrvTermData) binary;
-        dataset[term_count - 4] = bytes;
-        dataset[term_count - 3] = 0;
-        dataset[term_count - 2] = ERL_DRV_TUPLE;
-        dataset[term_count - 1] = 2;
+        append_to_dataset(8, dataset, term_count,
+          ERL_DRV_ATOM, drv->atom_blob,
+          ERL_DRV_BINARY, (ErlDrvTermData) binary, (ErlDrvTermData) bytes, (ErlDrvTermData) 0,
+          ERL_DRV_TUPLE, (ErlDrvTermData) 2);
         break;
       }
       case SQLITE_TEXT: {
@@ -915,33 +892,28 @@ static void sql_step_async(void *_async_command) {
         binaries = add_to_ptr_list(binaries, binary);
 
         EXTEND_DATASET_DIRECT(4);
-        dataset[term_count - 4] = ERL_DRV_BINARY;
-        dataset[term_count - 3] = (ErlDrvTermData) binary;
-        dataset[term_count - 2] = bytes;
-        dataset[term_count - 1] = 0;
+        append_to_dataset(4, dataset, term_count,
+          ERL_DRV_BINARY, (ErlDrvTermData) binary, (ErlDrvTermData) bytes, (ErlDrvTermData) 0);
         break;
       }
       case SQLITE_NULL: {
         EXTEND_DATASET_DIRECT(2);
-        dataset[term_count - 2] = ERL_DRV_ATOM;
-        dataset[term_count - 1] = drv->atom_null;
+        append_to_dataset(2, dataset, term_count, ERL_DRV_ATOM, drv->atom_null);
         break;
       }
       }
     }
     EXTEND_DATASET_DIRECT(2);
-    dataset[term_count - 2] = ERL_DRV_TUPLE;
-    dataset[term_count - 1] = column_count;
+    append_to_dataset(2, dataset, term_count, ERL_DRV_TUPLE, (ErlDrvTermData) column_count);
 
     async_command->ptrs = ptrs;
     async_command->binaries = binaries;
     break;
   case SQLITE_DONE:
     EXTEND_DATASET_DIRECT(4);
-    dataset[term_count - 4] = ERL_DRV_PORT;
-    dataset[term_count - 3] = driver_mk_port(drv->port);
-    dataset[term_count - 2] = ERL_DRV_ATOM;
-    dataset[term_count - 1] = drv->atom_done;
+    append_to_dataset(4, dataset, term_count,
+      ERL_DRV_PORT, driver_mk_port(drv->port),
+      ERL_DRV_ATOM, drv->atom_done);
     sqlite3_reset(statement);
     break;
   case SQLITE_BUSY:
@@ -960,8 +932,7 @@ static void sql_step_async(void *_async_command) {
   }
 
   EXTEND_DATASET_DIRECT(2);
-  dataset[term_count - 2] = ERL_DRV_TUPLE;
-  dataset[term_count - 1] = 2;
+  append_to_dataset(2, dataset, term_count, ERL_DRV_TUPLE, (ErlDrvTermData) 2);
 
 POPULATE_COMMAND:
   async_command->dataset = dataset;
@@ -1078,17 +1049,16 @@ static int prepared_columns(sqlite3_drv_t *drv, char *buffer, int buffer_size) {
 
   statement = drv->prepared_stmts[prepared_index];
 
-  EXTEND_DATASET_DIRECT(4);
   port = driver_mk_port(drv->port);
-  dataset[term_count - 4] = ERL_DRV_PORT;
-  dataset[term_count - 3] = port;
+  EXTEND_DATASET_DIRECT(2);
+  append_to_dataset(2, dataset, term_count, ERL_DRV_PORT, port);
 
   column_count = sqlite3_column_count(statement);
 
   get_columns(
       drv, statement, column_count, 2, &term_count, &term_allocated, &ptrs, &dataset);
-  dataset[term_count - 2] = ERL_DRV_TUPLE;
-  dataset[term_count - 1] = 2;
+  EXTEND_DATASET_DIRECT(2);
+  append_to_dataset(2, dataset, term_count, ERL_DRV_TUPLE, (ErlDrvTermData) 2);
 
   erl_drv_output_term(port, dataset, term_count);
   free_ptr_list(ptrs, driver_free_fun);
