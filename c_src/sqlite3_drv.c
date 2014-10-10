@@ -530,7 +530,7 @@ static void get_columns(
   for (i = 0; i < column_count; i++) {
     const char *column_name = sqlite3_column_name(statement, i);
     size_t column_name_length = strlen(column_name);
-    char *column_name_copy = driver_alloc(sizeof(char *) * (column_name_length + 1));
+    char *column_name_copy = driver_alloc(sizeof(char) * (column_name_length + 1));
     strcpy(column_name_copy, column_name);
     *p_ptrs = add_to_ptr_list(*p_ptrs, column_name_copy);
     TRACE((drv->log, "Column: %s\n", column_name_copy));
