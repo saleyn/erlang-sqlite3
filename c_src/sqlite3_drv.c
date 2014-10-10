@@ -433,7 +433,7 @@ static int bind_parameters(
       return output_error(drv, SQLITE_ERROR,
                           "error while binding parameters");
     }
-    acc_string = driver_alloc(sizeof(char*) * (*p_size + 1));
+    acc_string = driver_alloc(sizeof(char) * (*p_size + 1));
     ei_decode_string(buffer, p_index, acc_string);
     for (param_index = 1; param_index <= *p_size; param_index++) {
       sqlite3_bind_int(statement, param_index, (int) (unsigned char) acc_string[param_index - 1]);
