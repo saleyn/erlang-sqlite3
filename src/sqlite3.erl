@@ -1232,7 +1232,7 @@ list_init([H|T]) -> [H|list_init(T)].
 %% @type pk_constraints() = pk_constraint() | [pk_constraint()].
 %% See {@link column_constraint()}.
 %% @type column_constraint() = non_null | primary_key | {primary_key, pk_constraints()}
-%%                             | unique | {default, sql_value()}.
+%%                             | unique | {default, sql_value()} | {raw, string()}.
 %% See {@link column_constraints()}.
 %% @type column_constraints() = column_constraint() | [column_constraint()].
 %% See {@link table_info()}.
@@ -1241,7 +1241,7 @@ list_init([H|T]) -> [H|list_init(T)].
 %% Describes the columns of an SQLite table: each tuple contains name, type and constraints (if any)
 %% of one column.
 %% @end
-%% @type table_constraint() = {primary_key, [atom()]} | {unique, [atom()]}.
+%% @type table_constraint() = {primary_key, [atom()]} | {unique, [atom()]} | {raw, string()}.
 %% @type table_constraints() = table_constraint() | [table_constraint()].
 %%
 %% Currently supported constraints for {@link table_info()} and {@link sqlite3:create_table/4}.

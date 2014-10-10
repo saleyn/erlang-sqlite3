@@ -378,6 +378,7 @@ table_constraint_sql(TableConstraint) ->
             ["UNIQUE(", 
              map_intersperse(fun indexed_column_sql/1, Columns, ", "), ")"];
         %% TODO: foreign key
+        {raw, S} when is_list(S) -> S;
         _ when is_list(TableConstraint) ->
             map_intersperse(fun table_constraint_sql/1, TableConstraint, ", ")
     end.
