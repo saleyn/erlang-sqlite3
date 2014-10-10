@@ -1,5 +1,6 @@
 #include "sqlite3_drv.h"
 #include <stdarg.h>
+#include <limits.h>
 
 // MSVC needs "__inline" instead of "inline" in C-source files.
 #if defined(_MSC_VER)
@@ -171,47 +172,53 @@ static void stop(ErlDrvData handle) {
   driver_free(driver_data);
 }
 
+static inline int output_error(sqlite3_drv_t *drv, int error_code, const char *error);
+
 // Handle input from Erlang VM
 static ErlDrvSSizeT control(
     ErlDrvData drv_data, unsigned int command, char *buf,
     ErlDrvSizeT len, char **rbuf, ErlDrvSizeT rlen) {
   sqlite3_drv_t* driver_data = (sqlite3_drv_t*) drv_data;
-  switch (command) {
-  case CMD_SQL_EXEC:
-    sql_exec(driver_data, buf, len);
-    break;
-  case CMD_SQL_BIND_AND_EXEC:
-    sql_bind_and_exec(driver_data, buf, len);
-    break;
-  case CMD_PREPARE:
-    prepare(driver_data, buf, len);
-    break;
-  case CMD_PREPARED_BIND:
-    prepared_bind(driver_data, buf, len);
-    break;
-  case CMD_PREPARED_STEP:
-    prepared_step(driver_data, buf, len);
-    break;
-  case CMD_PREPARED_RESET:
-    prepared_reset(driver_data, buf, len);
-    break;
-  case CMD_PREPARED_CLEAR_BINDINGS:
-    prepared_clear_bindings(driver_data, buf, len);
-    break;
-  case CMD_PREPARED_FINALIZE:
-    prepared_finalize(driver_data, buf, len);
-    break;
-  case CMD_PREPARED_COLUMNS:
-    prepared_columns(driver_data, buf, len);
-    break;
-  case CMD_SQL_EXEC_SCRIPT:
-    sql_exec_script(driver_data, buf, len);
-    break;
-  case CMD_ENABLE_LOAD_EXTENSION:
-    enable_load_extension(driver_data, buf, len);
-    break;
-  default:
-    unknown(driver_data, buf, len);
+  if (len > INT_MAX) {
+    output_error(driver_data, SQLITE_MISUSE, "Command size doesn't fit into int type");
+  } else {
+    switch (command) {
+    case CMD_SQL_EXEC:
+      sql_exec(driver_data, buf, (int) len);
+      break;
+    case CMD_SQL_BIND_AND_EXEC:
+      sql_bind_and_exec(driver_data, buf, (int) len);
+      break;
+    case CMD_PREPARE:
+      prepare(driver_data, buf, (int) len);
+      break;
+    case CMD_PREPARED_BIND:
+      prepared_bind(driver_data, buf, (int) len);
+      break;
+    case CMD_PREPARED_STEP:
+      prepared_step(driver_data, buf, (int) len);
+      break;
+    case CMD_PREPARED_RESET:
+      prepared_reset(driver_data, buf, (int) len);
+      break;
+    case CMD_PREPARED_CLEAR_BINDINGS:
+      prepared_clear_bindings(driver_data, buf, (int) len);
+      break;
+    case CMD_PREPARED_FINALIZE:
+      prepared_finalize(driver_data, buf, (int) len);
+      break;
+    case CMD_PREPARED_COLUMNS:
+      prepared_columns(driver_data, buf, (int) len);
+      break;
+    case CMD_SQL_EXEC_SCRIPT:
+      sql_exec_script(driver_data, buf, (int) len);
+      break;
+    case CMD_ENABLE_LOAD_EXTENSION:
+      enable_load_extension(driver_data, buf, (int) len);
+      break;
+    default:
+      unknown(driver_data, buf, (int) len);
+    }
   }
   return 0;
 }

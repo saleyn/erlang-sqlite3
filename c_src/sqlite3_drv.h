@@ -21,6 +21,7 @@
 
 #if defined(_MSC_VER)
 #pragma warning(disable: 4201)
+#pragma warning(disable: 4127)
 #endif
 
 // Path to file where data will be stored. 
