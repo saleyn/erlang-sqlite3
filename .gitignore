@@ -20,3 +20,4 @@ config.tmp
 *.beam
 *.so
 doc
+*.pdb

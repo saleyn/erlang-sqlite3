@@ -32,19 +32,15 @@ If you want to use erlang-sqlite3 on an embedded device, it can be cross-compile
 
 ### Windows with MS Visual C++
 
-1. Download both the source amalgamation and the precompiled binary from http://www.sqlite.org/download.html. Extract files `sqlite3.h` from the amalgamation and `sqlite3.def` from the binary. Run this command from Visual Studio command prompt:
+To build both SQLite3 and sqlite3-erlang:
 
-       lib /def:sqlite3.def
+1. If MSVC tools (`cl`, `link`, etc.) are not in the path, run `vcvars32.bat` or `vcvars64.bat` depending on whether you use 32-bit or 64-bit Erlang. `build_port_win32.bat` and `build_port_win64.bat` have the standard paths for VC10.0.
 
-   to create the import library `sqlite3.lib`. In `rebar.config`, set the correct paths in tuples `{"win32", "CFLAGS", "/Idirectory/containing/sqlite3.h/ /Ic_src /W4 /wd4100 /wd4204"}` and `{"win32", "LDFLAGS", "/path/to/sqlite3.lib"}`.
+2. `nmake`.
 
-2. Run `nmake` if MSVC tools (`cl`, `link`, etc.) are already on the path. Otherwise, they should be make available by calling `vcvars32.bat` (see `build_port_win.bat` for the standard path).
+Alternately, you can use prebuilt versions of `sqlite3.dll` and `sqlite3.def`. To make `sqlite3.lib`, use `lib /def:sqlite3.def`. Then remove `sqlite3.dll` and `sqlite3.lib` targets from `Makefile` and do as above.
 
 ### Potential compilation problems
-
-* On Windows, `sqlite3.dll` usually won't be installed in the system-wide DLL search path. In this case, it should be placed in the working directory of your application.
-
-* If Erlang is 64-bit, so must be `sqlite3.dll` and MSVC (use `vcvars64.bat` instead of `vcvars32.bat`).
 
 * If SQLite was built with `SQLITE_OMIT_LOAD_EXTENSION` option, you'll need to undefine `ERLANG_SQLITE3_LOAD_EXTENSION` macro in <c_src/sqlite3_drv.h>.
 
@@ -58,11 +54,11 @@ If you want to use erlang-sqlite3 on an embedded device, it can be cross-compile
 
 1. `nmake tests`
 
-2. If you get the error `"Error loading sqlite3_drv: The specified module could not be found"`, this is because `sqlite3.dll` isn't in the search path. Copy it to the `.eunit` directory.
+2. If you get the error `"Error loading sqlite3_drv: The specified module could not be found"`, this is because `sqlite3.dll` isn't in the search path.
 
 ## Example usage
 
-See tests `test/sqlite3_test.erl` for a starting point.
+See tests `test/sqlite3_test.erl` for a starting point. On Windows note that `sqlite3.dll` must be in your application's working directory or somewhere in the DLL search path.
 
 ## Authors
 

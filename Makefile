@@ -1,22 +1,18 @@
 REBAR=rebar
 REBAR_COMPILE=$(REBAR) get-deps compile
 PLT=dialyzer\sqlite3.plt
-ERL_INTERFACE=$(ERL_ROOT)\lib\erl_interface-3.7.18
-ERTS=$(ERL_ROOT)\erts-6.2
-SQLITE_SRC=F:\MyProgramming\sqlite-amalgamation
 
 all: compile
 
-compile: 
+compile: sqlite3.dll sqlite3.lib
 	$(REBAR_COMPILE)
 
-debug:
+debug: sqlite3.dll sqlite3.lib
 	$(REBAR_COMPILE) -C rebar.debug.config
 
-tests:
-	if not exist .eunit mkdir .eunit
-	cp sqlite3.dll .eunit
-	$(REBAR_COMPILE) eunit
+tests: compile sqlite3.dll
+	cp sqlite3.dll priv
+	rebar skip-deps=true eunit
 
 clean:
 	if exist deps del /Q deps
@@ -25,9 +21,11 @@ clean:
 	if exist doc\* del /Q doc\*
 	if exist .eunit del /Q .eunit
 	if exist c_src\*.o del /Q c_src\*.o
+	if exist dialyzer del /Q dialyzer
+	if exist sqlite3.* del /Q sqlite3.*
 
-docs:
-	$(REBAR_COMPILE) doc
+docs: compile
+	rebar doc
 
 static: compile
 	@if not exist $(PLT) \
@@ -37,3 +35,9 @@ static: compile
 
 cross_compile: clean
 	$(REBAR_COMPILE) -C rebar.cross_compile.config
+
+sqlite3.dll: sqlite3_amalgamation\sqlite3.c sqlite3_amalgamation\sqlite3.h
+	cl /O2 sqlite3_amalgamation\sqlite3.c /Isqlite3_amalgamation /link /dll /out:sqlite3.dll
+
+sqlite3.lib: sqlite3.dll
+	lib /out:sqlite3.lib sqlite3.obj
