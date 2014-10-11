@@ -246,6 +246,8 @@ static inline int return_error(
 static inline int output_error(
     sqlite3_drv_t *drv, int error_code, const char *error) {
   int term_count = 2, term_allocated = 13;
+  // for some reason breaks if allocated as an array on stack
+  // even though it shouldn't be extended
   ErlDrvTermData *dataset = driver_alloc(sizeof(ErlDrvTermData) * term_allocated);
   dataset[0] = ERL_DRV_PORT;
   dataset[1] = driver_mk_port(drv->port);
@@ -1069,6 +1071,7 @@ static int prepared_columns(sqlite3_drv_t *drv, char *buffer, int buffer_size) {
 
   erl_drv_output_term(port, dataset, term_count);
   free_ptr_list(ptrs, driver_free_fun);
+  driver_free(dataset);
   return 0;
 }
 
