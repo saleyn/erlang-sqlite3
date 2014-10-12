@@ -25,11 +25,6 @@
 #pragma warning(disable: 4820)
 #endif
 
-// Path to file where data will be stored. 
-// It will be created if it doesn't exist
-#define DB_PATH "./store.db"
-#define LOG_PATH "/tmp/erlang-sqlite3-drv.log"
-
 // Binary commands between Erlang VM and Driver
 #define CMD_SQL_EXEC 2
 // #define CMD_DEL 3

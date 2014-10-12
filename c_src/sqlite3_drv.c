@@ -94,40 +94,54 @@ static ErlDrvData start(ErlDrvPort port, char* cmd) {
   sqlite3_drv_t* retval = (sqlite3_drv_t*) driver_alloc(sizeof(sqlite3_drv_t));
   struct sqlite3 *db = NULL;
   int status = 0;
-  char *db_name;
+  char *db_name = strstr(cmd, " ");
 
 #ifdef DEBUG
-  retval->log = fopen(LOG_PATH, "a+");
+  #ifdef _MSC_VER
+  const char *log_file = _tempnam(NULL, "erlang-sqlite3-log-");
+  retval->log =
+    fopen_s(log_file, "a");
+  #else
+  const char *log_file = tempnam(NULL, "erlang-sqlite3-log-");
+  retval->log =
+    fopen(log_file, "ax");
+  #endif
   if (!retval->log) {
-    fprintf(stderr, "Error creating log file: %s\n", LOG_PATH);
+    fprintf(stderr, "Error creating log file: %s\n", log_file);
     // if we can't open the log file we shouldn't hide the data or the problem
     retval->log = stderr; // noisy
   }
-
-  fprintf(retval->log,
-          "--- Start erlang-sqlite3 driver\nCommand line: [%s]\n", cmd);
+  free(log_file);
 #else
   retval->log = NULL;
 #endif
-  db_name = strstr(cmd, " ");
+
+#if defined(_MSC_VER)
+#pragma warning(disable: 4306)
+#endif
   if (!db_name) {
-    TRACE((retval->log,
-            "ERROR: DB name should be passed at command line\n"));
-    db_name = DB_PATH;
+    driver_free(retval);
+    return ERL_DRV_ERROR_BADARG;
   } else {
     ++db_name; // move to first character after ' '
   }
 
   // Create and open the database
-  sqlite3_open(db_name, &db);
-  status = sqlite3_errcode(db);
+  status = sqlite3_open(db_name, &db);
 
   if (status != SQLITE_OK) {
     TRACE((retval->log, "ERROR: Unable to open file: %s because %s\n\n",
             db_name, sqlite3_errmsg(db)));
+    // We don't do this because there's no way to pass the error to Erlang
+    // sqlite3_close(db);
+    // driver_free(retval);
+    // return ERL_DRV_ERROR_GENERAL;
   } else {
     TRACE((retval->log, "Opened file %s\n", db_name));
   }
+#if defined(_MSC_VER)
+#pragma warning(default: 4306)
+#endif
 
   // Set the state for the driver
   retval->port = port;
