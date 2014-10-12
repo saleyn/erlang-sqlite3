@@ -14,7 +14,7 @@ static int DEBUG = 0;
 #endif
 
 #define TRACE(x) do { if (DEBUG) debug_printf x; } while (0)
-#define ERROR(x) debug_printf x;
+#define LOG_ERROR(x) debug_printf x;
 
 #define EXTEND_DATASET(n, term_count, term_allocated, dataset) \
   term_count += n; \
@@ -170,7 +170,7 @@ static void stop(ErlDrvData handle) {
   if (close_result != SQLITE_OK) {
     //ERROR((driver_data->log, 
     //  "ERROR: Failed to close DB, some resources aren't finalized!"));
-    fprintf(stderr, "ERROR: Failed to close DB, some resources aren't finalized!");
+    fprintf(stderr, "ERROR: Failed to close DB, some resources aren't finalized!\n");
   }
   
   if (driver_data->log && (driver_data->log != stderr)) {
@@ -300,7 +300,7 @@ static int enable_load_extension(sqlite3_drv_t* drv, char *buf, int len) {
 }
 
 static inline async_sqlite3_command *make_async_command_statement(
-    sqlite3_drv_t *drv, sqlite3_stmt *statement) {
+    sqlite3_drv_t *drv, sqlite3_stmt *statement, int finalize) {
   async_sqlite3_command *result =
       (async_sqlite3_command *) driver_alloc(sizeof(async_sqlite3_command));
   memset(result, 0, sizeof(async_sqlite3_command));
@@ -308,6 +308,7 @@ static inline async_sqlite3_command *make_async_command_statement(
   result->driver_data = drv;
   result->type = t_stmt;
   result->statement = statement;
+  result->finalize_statement_on_free = finalize;
   return result;
 }
 
@@ -328,7 +329,7 @@ static inline async_sqlite3_command *make_async_command_script(
 
 static inline int sql_exec_statement(
     sqlite3_drv_t *drv, sqlite3_stmt *statement) {
-  async_sqlite3_command *async_command = make_async_command_statement(drv, statement);
+  async_sqlite3_command *async_command = make_async_command_statement(drv, statement, 1);
 
   TRACE((drv->log, "Driver async: %d %p\n", SQLITE_VERSION_NUMBER, async_command->statement));
 
@@ -615,6 +616,7 @@ static int sql_bind_and_exec(sqlite3_drv_t *drv, char *buffer, int buffer_size) 
   if (result == SQLITE_OK) {
     return sql_exec_statement(drv, statement);
   } else {
+    sqlite3_finalize(statement);
     return result; // error has already been output
   }
 }
@@ -1103,7 +1105,7 @@ static int prepared_step(sqlite3_drv_t *drv, char *buffer, int buffer_size) {
   TRACE((drv->log, "Making a step in prepared statement #%d\n", prepared_index));
 
   statement = drv->prepared_stmts[prepared_index];
-  async_command = make_async_command_statement(drv, statement);
+  async_command = make_async_command_statement(drv, statement, 0);
 
   if (sqlite3_threadsafe()) {
     drv->async_handle = driver_async(drv->port, &drv->key, sql_step_async,
