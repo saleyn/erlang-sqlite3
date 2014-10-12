@@ -19,6 +19,17 @@
 #error "SQLite3 of version 3.6.1 minumum required"
 #endif
 
+// pre-R15B
+#if ERL_DRV_EXTENDED_MAJOR_VERSION < 2
+typedef int ErlDrvSizeT;
+typedef int ErlDrvSSizeT;
+#endif
+
+// pre-R16B
+#if (ERL_DRV_EXTENDED_MAJOR_VERSION < 2) || ((ERL_DRV_EXTENDED_MAJOR_VERSION == 2) && (ERL_DRV_EXTENDED_MINOR_VERSION == 0))
+#define PRE_R16B
+#endif
+
 #if defined(_MSC_VER)
 #pragma warning(disable: 4201)
 #pragma warning(disable: 4127)

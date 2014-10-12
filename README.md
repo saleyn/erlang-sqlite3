@@ -10,7 +10,7 @@ See also [esqlite](https://github.com/mmzeeman/esqlite) for an alternative libra
 
 ## Requirements
 
-Erlang/OTP R16B or 17.x is required, and SQLite 3 minimum version is 3.6.1. See R14B branch for older Erlang versions.
+Erlang/OTP R14B or later is required (tested up to 17.3 at this writing), and SQLite 3 minimum version is 3.6.1.
 
 ## Compiling
 
