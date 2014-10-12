@@ -17,7 +17,6 @@
 -include_lib("eunit/include/eunit.hrl").
 
 -define(FuncTest(Name), {??Name, fun Name/0}).
--define(WARN_ERROR_MESSAGE, io:format(user, "Error message should be shown...~n", [])).
 
 drop_all_tables(Db) ->
     Tables = sqlite3:list_tables(Db),
@@ -82,7 +81,6 @@ basic_functionality() ->
                  {wage, integer}],
     TableInfo1 = lists:keyreplace(age, 1, TableInfo, {age, integer, [not_null]}),
     drop_all_tables(ct),
-    ?WARN_ERROR_MESSAGE,
     ?assertMatch(
         {error, 21, _},
         sqlite3:sql_exec(ct, "-- Comment")),
@@ -102,7 +100,6 @@ basic_functionality() ->
     ?assertEqual(
         {rowid, 2}, 
         sqlite3:write(ct, user, [{name, "marge"}, {age, 30}, {wage, 2000}])),
-    ?WARN_ERROR_MESSAGE,
     ?assertMatch(
         {error, 19, _}, 
         sqlite3:write(ct, user, [{name, "marge"}, {age, 30}, {wage, 2000}])),
@@ -141,7 +138,6 @@ parametrized() ->
     sqlite3:sql_exec(ct, "INSERT INTO user1 (id, name) VALUES (?3, ?5)", [{3, 2}, {5, "joe"}]),
     sqlite3:sql_exec(ct, "INSERT INTO user1 (id, name) VALUES (:id, @name)", [{":id", 3}, {'@name', <<"jack">>}]),
     sqlite3:sql_exec(ct, "INSERT INTO user1 (id, name) VALUES (?, ?)", [4, "james"]),
-    ?WARN_ERROR_MESSAGE,
     ?assertMatch(
         {error, _, _},
         sqlite3:sql_exec(ct, "INSERT INTO user1 (id, name) VALUES (?, ?)", [4, bad_sql_value])),
@@ -309,7 +305,6 @@ script_test() ->
                   "INSERT INTO person (id) VALUES (2);",
                   "   "
                  ], "\n"),
-    ?WARN_ERROR_MESSAGE,
     ?assertEqual(
         [ok, {error, 1, "near \"SYNTAX\": syntax error"}], 
         sqlite3:sql_exec_script(script, BadScript)),
