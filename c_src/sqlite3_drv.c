@@ -14,6 +14,7 @@ static int DEBUG = 0;
 #endif
 
 #define TRACE(x) do { if (DEBUG) debug_printf x; } while (0)
+#define ERROR(x) debug_printf x;
 
 #define EXTEND_DATASET(n, term_count, term_allocated, dataset) \
   term_count += n; \
@@ -156,6 +157,7 @@ static ErlDrvData start(ErlDrvPort port, char* cmd) {
 static void stop(ErlDrvData handle) {
   sqlite3_drv_t* driver_data = (sqlite3_drv_t*) handle;
   unsigned int i;
+  int close_result;
 
   if (driver_data->prepared_stmts) {
     for (i = 0; i < driver_data->prepared_count; i++) {
@@ -163,11 +165,17 @@ static void stop(ErlDrvData handle) {
     }
     driver_free(driver_data->prepared_stmts);
   }
-  sqlite3_close(driver_data->db);
+  
+  close_result = sqlite3_close(driver_data->db);
+  if (close_result != SQLITE_OK) {
+    //ERROR((driver_data->log, 
+    //  "ERROR: Failed to close DB, some resources aren't finalized!"));
+    fprintf(stderr, "ERROR: Failed to close DB, some resources aren't finalized!");
+  }
+  
   if (driver_data->log && (driver_data->log != stderr)) {
     fclose(driver_data->log);
   }
-  driver_data->log = NULL;
 
   driver_free(driver_data);
 }

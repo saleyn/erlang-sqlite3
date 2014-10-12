@@ -51,9 +51,9 @@ all_test_() ->
       ?FuncTest(unicode),
       ?FuncTest(acc_string_encoding),
       ?FuncTest(large_offset),
+      ?FuncTest(issue23),
       ?FuncTest(issue13),
-      ?FuncTest(enable_load_extension),
-      ?FuncTest(issue23)]}.
+      ?FuncTest(enable_load_extension)]}.
 
 anonymous_test() ->
     {ok, Pid} = sqlite3:open(anonymous, []),
