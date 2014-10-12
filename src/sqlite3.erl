@@ -1015,7 +1015,6 @@ terminate(_Reason, #state{port = Port}) ->
         undefined ->
             pass;
         _ ->
-            port_command(Port, term_to_binary({close, nop})),
             port_close(Port)
     end,
     case erl_ddll:unload(?DRIVER_NAME) of
