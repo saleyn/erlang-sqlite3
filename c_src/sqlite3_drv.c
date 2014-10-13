@@ -129,6 +129,8 @@ static ErlDrvData start(ErlDrvPort port, char* cmd) {
   struct sqlite3 *db = NULL;
   int status = 0;
   char *db_name = strstr(cmd, " ");
+  int db_name_len;
+  char *db_name_copy;
 
 #ifdef DEBUG
   errno_t file_open_errno;
@@ -176,10 +178,14 @@ static ErlDrvData start(ErlDrvPort port, char* cmd) {
 #if defined(_MSC_VER)
 #pragma warning(default: 4306)
 #endif
+  db_name_len = strlen(db_name) + 1; // include terminator
+  db_name_copy = driver_alloc(sizeof(char) * db_name_len);
+  strcpy(db_name_copy, db_name);
 
   // Set the state for the driver
   drv->port = port;
   drv->db = db;
+  drv->db_name = db_name_copy;
   drv->key = 42;
   // FIXME Any way to get canonical path to the DB?
   // We need to ensure equal keys for different paths to the same file
@@ -216,18 +222,14 @@ static void stop(ErlDrvData handle) {
   
   close_result = sqlite3_close(drv->db);
   if (close_result != SQLITE_OK) {
-    #if SQLITE_VERSION_NUMBER >= 3007010
-    LOG_ERROR("Failed to close DB %s, some resources aren't finalized!", sqlite3_db_filename(drv->db, "main"));
-    #else
-    // TODO store DB name in driver?
-    LOG_ERROR("Failed to close DB, some resources aren't finalized!", "");
-    #endif
+    LOG_ERROR("Failed to close DB %s, some resources aren't finalized!", drv->db_name);
   }
   
   if (drv->log && (drv->log != stderr)) {
     fclose(drv->log);
   }
 
+  driver_free(drv->db_name);
   driver_free(drv);
 }
 

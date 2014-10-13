@@ -64,6 +64,7 @@ typedef struct sqlite3_drv_t {
   ErlDrvPort port;
   unsigned int key;
   struct sqlite3 *db;
+  char* db_name;
   long async_handle;
   FILE *log;
   sqlite3_stmt **prepared_stmts;
