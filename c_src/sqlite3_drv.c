@@ -216,7 +216,12 @@ static void stop(ErlDrvData handle) {
   
   close_result = sqlite3_close(drv->db);
   if (close_result != SQLITE_OK) {
+    #if SQLITE_VERSION_NUMBER >= 3007010
     LOG_ERROR("Failed to close DB %s, some resources aren't finalized!", sqlite3_db_filename(drv->db, "main"));
+    #else
+    // TODO store DB name in driver?
+    LOG_ERROR("Failed to close DB, some resources aren't finalized!", "");
+    #endif
   }
   
   if (drv->log && (drv->log != stderr)) {
