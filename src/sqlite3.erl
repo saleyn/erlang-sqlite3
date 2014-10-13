@@ -100,11 +100,11 @@ open(DbName) ->
 %% @doc
 %%   Opens a sqlite3 database creating one if necessary. By default the database
 %%   will be called DbName.db in the current path (unless Db is 'anonymous', see below).
-%%   This can be changed by passing the option {file, DbFile :: string()}. DbFile 
+%%   This can be changed by passing the option {file, DbFile :: string()}. DbFile
 %%   must be the full path to the sqlite3 db file. Can be used to open multiple sqlite3
 %%   databases per node. Must be use in conjunction with stop/1, sql_exec/2,
 %%   create_table/3, list_tables/1, table_info/2, write/3, read/3, delete/3
-%%   and drop_table/2. If the name is an atom other than 'anonymous', it's used for 
+%%   and drop_table/2. If the name is an atom other than 'anonymous', it's used for
 %%   registering the gen_server and must be unique. If the name is 'anonymous',
 %%   the process isn't registered.
 %% @end
@@ -477,7 +477,7 @@ write(Db, Tbl, Data) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec write_timeout(db(), table_id(), [{column_id(), sql_value()}], timeout()) ->
-		  sql_non_query_result().
+          sql_non_query_result().
 write_timeout(Db, Tbl, Data, Timeout) ->
     gen_server:call(Db, {write, Tbl, Data}, Timeout).
 
@@ -508,7 +508,7 @@ write_many(Db, Tbl, Data) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec write_many_timeout(db(), table_id(), [[{column_id(), sql_value()}]], timeout()) ->
-		  [sql_result()].
+          [sql_result()].
 write_many_timeout(Db, Tbl, Data, Timeout) ->
     gen_server:call(Db, {write_many, Tbl, Data}, Timeout).
 
@@ -519,7 +519,7 @@ write_many_timeout(Db, Tbl, Data, Timeout) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec update(table_id(), {column_id(), sql_value()}, [{column_id(), sql_value()}]) ->
-		  sql_non_query_result().
+          sql_non_query_result().
 update(Tbl, {Key, Value}, Data) ->
     update(?MODULE, Tbl, {Key, Value}, Data).
 
@@ -875,8 +875,8 @@ handle_call({write, Tbl, Data}, _From, State) ->
             {reply, {error, Exception}, State}
     end;
 handle_call({write_many, Tbl, DataList}, _From, State) ->
-    SQLScript = ["SAVEPOINT 'erlang-sqlite3-write_many';", 
-                 [sqlite3_lib:write_sql(Tbl, Data) || Data <- DataList], 
+    SQLScript = ["SAVEPOINT 'erlang-sqlite3-write_many';",
+                 [sqlite3_lib:write_sql(Tbl, Data) || Data <- DataList],
                  "RELEASE SAVEPOINT 'erlang-sqlite3-write_many';"],
     Reply = do_sql_exec_script(SQLScript, State),
     {reply, Reply, State};
@@ -1106,7 +1106,7 @@ exec(Port, {bind, Index, Params}) ->
 exec(Port, {enable_load_extension, Value}) ->
     % Payload is 1 if enabling extension loading,
     % 0 if disabling
-    Payload = case Value of 
+    Payload = case Value of
         true -> 1;
         _ when is_integer(Value) -> Value;
         false -> 0;
@@ -1137,10 +1137,10 @@ wait_result(Port) ->
     end.
 
 parse_table_info(Info) ->
-	Info1 = re:replace(Info, <<"CHECK \\('(bin|lst|am)'='(bin|lst|am)'\\)\\)">>, "", [{return, list}]),
+    Info1 = re:replace(Info, <<"CHECK \\('(bin|lst|am)'='(bin|lst|am)'\\)\\)">>, "", [{return, list}]),
     {_, [$(|Rest]} = lists:splitwith(fun(C) -> C =/= $( end, Info1),
-	%% remove ) at the end
-	Rest1 = list_init(Rest),
+    %% remove ) at the end
+    Rest1 = list_init(Rest),
     Cols = string:tokens(Rest1, ","),
     build_table_info(lists:map(fun(X) ->
                          string:tokens(X, " ")
@@ -1159,14 +1159,14 @@ build_constraints(["PRIMARY", "KEY" | Tail]) ->
     {Constraint, Rest} = build_primary_key_constraint(Tail),
     [Constraint | build_constraints(Rest)];
 build_constraints(["UNIQUE" | Tail]) ->
-	[unique | build_constraints(Tail)];
+    [unique | build_constraints(Tail)];
 build_constraints(["NOT", "NULL" | Tail]) ->
-	[not_null | build_constraints(Tail)];
+    [not_null | build_constraints(Tail)];
 build_constraints(["DEFAULT", DefaultValue | Tail]) ->
-	[{default, sqlite3_lib:sql_to_value(DefaultValue)} | build_constraints(Tail)];
+    [{default, sqlite3_lib:sql_to_value(DefaultValue)} | build_constraints(Tail)];
 build_constraints(["CHECK", _ | Tail]) ->
-	%% currently ignored
-	build_constraints(Tail).
+    %% currently ignored
+    build_constraints(Tail).
 % build_constraints(["REFERENCES", Check | Tail]) -> ...
 
 build_primary_key_constraint(Tokens) -> build_primary_key_constraint(Tokens, []).
@@ -1184,15 +1184,15 @@ build_primary_key_constraint(Tail, Acc) ->
 
 cast_table_name(Bin, SQL) ->
     case re:run(SQL,<<"CHECK \\('(bin|lst|am)'='(bin|lst|am)'\\)\\)">>,[{capture,all_but_first,binary}]) of
-	{match, [<<"bin">>, <<"bin">>]} ->
-	    Bin;
-	{match, [<<"lst">>, <<"lst">>]} ->
-	    unicode:characters_to_list(Bin, latin1);
-	{match, [<<"am">>, <<"am">>]} ->
-	    binary_to_atom(Bin, latin1);
-	_ ->
-	    %% backwards compatible
-	    binary_to_atom(Bin, latin1)
+    {match, [<<"bin">>, <<"bin">>]} ->
+        Bin;
+    {match, [<<"lst">>, <<"lst">>]} ->
+        unicode:characters_to_list(Bin, latin1);
+    {match, [<<"am">>, <<"am">>]} ->
+        binary_to_atom(Bin, latin1);
+    _ ->
+        %% backwards compatible
+        binary_to_atom(Bin, latin1)
     end.
 
 list_init([_]) -> [];

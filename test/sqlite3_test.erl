@@ -11,7 +11,7 @@
 %% API
 %% ====================================================================
 %% --------------------------------------------------------------------
-%% Function: 
+%% Function:
 %% Description:
 %% --------------------------------------------------------------------
 -include_lib("eunit/include/eunit.hrl").
@@ -75,9 +75,9 @@ basic_functionality() ->
     Columns = ["id", "name", "age", "wage"],
     AllRows = [{1, <<"abby">>, 20, 2000}, {2, <<"marge">>, 30, 2000}],
     AbbyOnly = [{1, <<"abby">>, 20, 2000}],
-    TableInfo = [{id, integer, [{primary_key, [asc, autoincrement]}]}, 
-                 {name, text, [not_null, unique]}, 
-                 {age, integer, not_null}, 
+    TableInfo = [{id, integer, [{primary_key, [asc, autoincrement]}]},
+                 {name, text, [not_null, unique]},
+                 {age, integer, not_null},
                  {wage, integer}],
     TableInfo1 = lists:keyreplace(age, 1, TableInfo, {age, integer, [not_null]}),
     drop_all_tables(ct),
@@ -85,50 +85,50 @@ basic_functionality() ->
         {error, 21, _},
         sqlite3:sql_exec(ct, "-- Comment")),
     ?assertEqual(
-        [], 
+        [],
         sqlite3:list_tables(ct)),
     ok = sqlite3:create_table(ct, user, TableInfo),
     ?assertEqual(
-        [user, sqlite_sequence], 
+        [user, sqlite_sequence],
         sqlite3:list_tables(ct)),
     ?assertEqual(
-        TableInfo1, 
+        TableInfo1,
         sqlite3:table_info(ct, user)),
     ?assertEqual(
-        {rowid, 1}, 
+        {rowid, 1},
         sqlite3:write(ct, user, [{name, "abby"}, {age, 20}, {<<"wage">>, 2000}])),
     ?assertEqual(
-        {rowid, 2}, 
+        {rowid, 2},
         sqlite3:write(ct, user, [{name, "marge"}, {age, 30}, {wage, 2000}])),
     ?assertMatch(
-        {error, 19, _}, 
+        {error, 19, _},
         sqlite3:write(ct, user, [{name, "marge"}, {age, 30}, {wage, 2000}])),
     ?assertEqual(
-        [{columns, Columns}, {rows, AllRows}], 
+        [{columns, Columns}, {rows, AllRows}],
         sqlite3:sql_exec(ct, "select * from user;")),
     ?assertEqual(
-        [{columns, Columns}, {rows, AllRows}], 
+        [{columns, Columns}, {rows, AllRows}],
         sqlite3:read_all(ct, user)),
     ?assertEqual(
-        [{columns, ["name"]}, {rows, [{<<"abby">>}, {<<"marge">>}]}], 
+        [{columns, ["name"]}, {rows, [{<<"abby">>}, {<<"marge">>}]}],
         sqlite3:read_all(ct, user, [name])),
     ?assertEqual(
-        [{columns, Columns}, {rows, AbbyOnly}], 
+        [{columns, Columns}, {rows, AbbyOnly}],
         sqlite3:read(ct, user, {name, "abby"})),
     ?assertEqual(
-        [{columns, Columns}, {rows, AllRows}], 
+        [{columns, Columns}, {rows, AllRows}],
         sqlite3:read(ct, user, {wage, 2000})),
     ?assertEqual(
-        ok, 
+        ok,
         sqlite3:delete(ct, user, {name, "marge"})),
     ?assertEqual(
-        ok, 
+        ok,
         sqlite3:update(ct, user, {name, "abby"}, [{wage, 3000}])),
     ?assertEqual(
-        [{columns, Columns}, {rows, [{1, <<"abby">>, 20, 3000}]}], 
+        [{columns, Columns}, {rows, [{1, <<"abby">>, 20, 3000}]}],
         sqlite3:sql_exec(ct, "select * from user;")),
     ?assertEqual(
-        ok, 
+        ok,
         sqlite3:drop_table(ct, user)).
 
 parametrized() ->
@@ -142,22 +142,22 @@ parametrized() ->
         {error, _, _},
         sqlite3:sql_exec(ct, "INSERT INTO user1 (id, name) VALUES (?, ?)", [4, bad_sql_value])),
     ?assertEqual(
-        [{columns, ["id", "name"]}, 
-         {rows, [{1, <<"john">>}, {2, <<"joe">>}, {3, <<"jack">>}, {4, <<"james">>}]}], 
+        [{columns, ["id", "name"]},
+         {rows, [{1, <<"john">>}, {2, <<"joe">>}, {3, <<"jack">>}, {4, <<"james">>}]}],
         sqlite3:read_all(ct, user1)),
     sqlite3:drop_table(ct, user1),
     sqlite3:create_table(ct, user1, [{i, integer}, {d, double}, {b, blob}]),
-    sqlite3:sql_exec(ct, "INSERT INTO user1 (i, d, b) VALUES (?, ?, ?)", 
+    sqlite3:sql_exec(ct, "INSERT INTO user1 (i, d, b) VALUES (?, ?, ?)",
         [null, 1.0, {blob, <<1,0,0>>}]),
     ?assertEqual(
-        [{columns, ["i", "d", "b"]}, 
+        [{columns, ["i", "d", "b"]},
          {rows, [{null, 1.0, {blob, <<1,0,0>>}}]}],
         sqlite3:read_all(ct, user1)).
 
 negative() ->
     drop_table_if_exists(ct, negative),
     sqlite3:create_table(ct, negative, [{id, int}]),
-    ?assertEqual({error, badarg}, 
+    ?assertEqual({error, badarg},
                  sqlite3:write(ct, negative, [{id, bad_sql_value}])).
 
 blob() ->
@@ -165,7 +165,7 @@ blob() ->
     sqlite3:create_table(ct, blobs, [{blob_col, blob}]),
     sqlite3:write(ct, blobs, [{blob_col, {blob, <<0,255,1,2>>}}]),
     ?assertEqual(
-        [{columns, ["blob_col"]}, {rows, [{{blob, <<0,255,1,2>>}}]}], 
+        [{columns, ["blob_col"]}, {rows, [{{blob, <<0,255,1,2>>}}]}],
         sqlite3:read_all(ct, blobs)).
 
 escaping() ->
@@ -176,7 +176,7 @@ escaping() ->
     ExpectedRows = [{list_to_binary(String)} || String <- Strings],
     sqlite3:write_many(ct, escaping, Input),
     ?assertEqual(
-        [{columns, ["str"]}, {rows, ExpectedRows}], 
+        [{columns, ["str"]}, {rows, ExpectedRows}],
         sqlite3:read_all(ct, escaping)).
 
 select_many_records() ->
@@ -186,15 +186,15 @@ select_many_records() ->
     sqlite3:write_many(ct, many_records, [[{id, X}, {name, "bar"}] || X <- lists:seq(1, N)]),
     Columns = ["id", "name"],
     ?assertEqual(
-        [{columns, Columns}, {rows, [{1, <<"bar">>}]}], 
+        [{columns, Columns}, {rows, [{1, <<"bar">>}]}],
         sqlite3:read(ct, many_records, {id, 1})),
     [?assertEqual(
-         M, 
+         M,
          length(rows(sqlite3:sql_exec(
              ct, io_lib:format("select * from many_records limit ~p;", [M])))))
      || M <- [10, 100, 1000]],
     ?assertEqual(
-        N, 
+        N,
         length(rows(sqlite3:sql_exec(ct, "select * from many_records;")))).
 
 %% note that inserts are actually serialized by gen_server
@@ -238,7 +238,7 @@ unicode() ->
     drop_table_if_exists(ct, unicode),
     sqlite3:create_table(ct, unicode, [{str, text}]),
     sqlite3:write(ct, unicode, [{str, UnicodeString}]),
-    ?assertEqual([{unicode:characters_to_binary(UnicodeString)}], rows(sqlite3:read_all(ct, unicode))). 
+    ?assertEqual([{unicode:characters_to_binary(UnicodeString)}], rows(sqlite3:read_all(ct, unicode))).
 
 acc_string_encoding() ->
     ?assertEqual([{62}], rows(sqlite3:sql_exec(ct, "SELECT ? + ?", [30,32]))).
@@ -283,17 +283,17 @@ script_test() ->
                   "   "
                  ], "\n"),
     ?assertEqual(
-        [ok, ok, ok], 
+        [ok, ok, ok],
         sqlite3:sql_exec_script(script, Script)),
     ?assertEqual(
-        [{columns,["id"]},{rows,[{1},{2}]}], 
+        [{columns,["id"]},{rows,[{1},{2}]}],
         sqlite3:read_all(script, person)),
-	Script2 = "select * from person; update person set id=3 where id=2",
+    Script2 = "select * from person; update person set id=3 where id=2",
     ?assertEqual(
-        [[{columns,["id"]},{rows,[{1},{2}]}], ok], 
+        [[{columns,["id"]},{rows,[{1},{2}]}], ok],
         sqlite3:sql_exec_script(script, Script2)),
     ?assertEqual(
-        [{columns,["id"]},{rows,[{1},{3}]}], 
+        [{columns,["id"]},{rows,[{1},{3}]}],
         sqlite3:read_all(script, person)),
     BadScript = string:join(
                  ["CREATE TABLE person2(",
@@ -306,31 +306,31 @@ script_test() ->
                   "   "
                  ], "\n"),
     ?assertEqual(
-        [ok, {error, 1, "near \"SYNTAX\": syntax error"}], 
+        [ok, {error, 1, "near \"SYNTAX\": syntax error"}],
         sqlite3:sql_exec_script(script, BadScript)),
     sqlite3:close(script).
 
 large_offset() ->
-	drop_table_if_exists(ct, large_offset),
-	ok = sqlite3:create_table(ct, large_offset, [{id, integer}]),
-	?assertMatch(
-	    [{columns, ["id"]}, {rows, []}, {error, 20, _}],
-	    sqlite3:sql_exec(ct, "select * from large_offset limit 1 offset 9223372036854775808")).
+    drop_table_if_exists(ct, large_offset),
+    ok = sqlite3:create_table(ct, large_offset, [{id, integer}]),
+    ?assertMatch(
+        [{columns, ["id"]}, {rows, []}, {error, 20, _}],
+        sqlite3:sql_exec(ct, "select * from large_offset limit 1 offset 9223372036854775808")).
 
 issue13() ->
-	drop_table_if_exists(ct, issue13),
-	ok = sqlite3:create_table(ct, issue13, [{foo, integer}]),
-	sqlite3:write_many(ct, issue13, 
-					   [[{foo, X}] || X <- [-1, 0, 127, 128, 255, 256]]),
-	?assertEqual(
-		[{columns, ["foo"]}, {rows, [{255}, {256}]}],
-		sqlite3:sql_exec(ct, "select foo from issue13 where foo > 128;")),
-	?assertEqual(
-		[{columns, ["foo"]}, {rows, [{255}, {256}]}],
-		sqlite3:sql_exec(ct, "select foo from issue13 where foo > ?;", [128.0])),
-	?assertEqual(
-		[{columns, ["foo"]}, {rows, [{255}, {256}]}],
-		sqlite3:sql_exec(ct, "select foo from issue13 where foo > ?;", [128])).
+    drop_table_if_exists(ct, issue13),
+    ok = sqlite3:create_table(ct, issue13, [{foo, integer}]),
+    sqlite3:write_many(ct, issue13,
+                       [[{foo, X}] || X <- [-1, 0, 127, 128, 255, 256]]),
+    ?assertEqual(
+        [{columns, ["foo"]}, {rows, [{255}, {256}]}],
+        sqlite3:sql_exec(ct, "select foo from issue13 where foo > 128;")),
+    ?assertEqual(
+        [{columns, ["foo"]}, {rows, [{255}, {256}]}],
+        sqlite3:sql_exec(ct, "select foo from issue13 where foo > ?;", [128.0])),
+    ?assertEqual(
+        [{columns, ["foo"]}, {rows, [{255}, {256}]}],
+        sqlite3:sql_exec(ct, "select foo from issue13 where foo > ?;", [128])).
 
 enable_load_extension() ->
     ?assertEqual(ok, sqlite3:enable_load_extension(ct, 1)).

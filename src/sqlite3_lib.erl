@@ -1,7 +1,7 @@
 %%%-------------------------------------------------------------------
 %%% File    : sqlite3_lib.erl
 %%% @author Tee Teoh
-%%% @copyright 21 Jun 2008 by Tee Teoh 
+%%% @copyright 21 Jun 2008 by Tee Teoh
 %%% @version 1.0.0
 %%% @doc Library module for sqlite3
 %%%
@@ -15,7 +15,7 @@
 -export([col_type_to_atom/1]).
 -export([value_to_sql/1, value_to_sql_unsafe/1, sql_to_value/1, escape/1, bin_to_hex/1]).
 -export([write_value_sql/1, write_col_sql/1]).
--export([create_table_sql/2, create_table_sql/3, drop_table_sql/1]). 
+-export([create_table_sql/2, create_table_sql/3, drop_table_sql/1]).
 -export([add_columns_sql/2]).
 -export([write_sql/2, update_sql/4, update_set_sql/1, delete_sql/3]).
 -export([read_sql/1, read_sql/2, read_sql/3, read_sql/4, read_cols_sql/1]).
@@ -61,12 +61,12 @@ col_type_to_atom(String) ->
 
 
 %%--------------------------------------------------------------------
-%% @doc 
+%% @doc
 %%    Converts an Erlang term to an SQL string.
-%%    Currently supports integers, floats, 'null' atom, and iodata 
+%%    Currently supports integers, floats, 'null' atom, and iodata
 %%    (binaries and iolists) which are treated as SQL strings.
 %%
-%%    Note that it opens opportunity for injection if an iolist includes 
+%%    Note that it opens opportunity for injection if an iolist includes
 %%    single quotes! Replace all single quotes (') with '' manually, or
 %%    use value_to_sql/1 if you are not sure if your strings contain
 %%    single quotes (e.g. can be entered by users).
@@ -86,9 +86,9 @@ value_to_sql_unsafe(X) ->
     end.
 
 %%--------------------------------------------------------------------
-%% @doc 
+%% @doc
 %%    Converts an Erlang term to an SQL string.
-%%    Currently supports integers, floats, 'null' atom, and iodata 
+%%    Currently supports integers, floats, 'null' atom, and iodata
 %%    (binaries and iolists) which are treated as SQL strings.
 %%
 %%    All single quotes (') will be replaced with ''.
@@ -108,7 +108,7 @@ value_to_sql(X) ->
     end.
 
 %%--------------------------------------------------------------------
-%% @doc 
+%% @doc
 %%    Converts an SQL value to an Erlang term.
 %% @end
 %%--------------------------------------------------------------------
@@ -130,7 +130,7 @@ sql_to_value(String) ->
     end.
 
 %%--------------------------------------------------------------------
-%% @doc 
+%% @doc
 %%    Creates the values portion of the sql stmt.
 %% @end
 %%--------------------------------------------------------------------
@@ -163,7 +163,7 @@ escape(IoData) -> re:replace(IoData, "'", "''", [global, unicode]).
 bin_to_hex(Binary) -> << <<(half_byte_to_hex(X)):8>> || <<X:4>> <= Binary>>.
 
 %%--------------------------------------------------------------------
-%% @doc 
+%% @doc
 %%    Creates update set stmt.
 %%    Currently supports integer, double/float and strings.
 %% @end
@@ -172,7 +172,7 @@ bin_to_hex(Binary) -> << <<(half_byte_to_hex(X)):8>> || <<X:4>> <= Binary>>.
 update_set_sql(Data) ->
     ColValueToSqlFun =
         fun({Col, Value}) ->
-                [atom_to_list(Col), " = ", value_to_sql(Value)]
+            [atom_to_list(Col), " = ", value_to_sql(Value)]
         end,
     map_intersperse(ColValueToSqlFun, Data, ", ").
 
@@ -205,7 +205,7 @@ create_table_sql(Tbl, Columns, TblConstraints) ->
     {Type, TName} = encode_table_id(Tbl),
     ["CREATE TABLE ", TName, " (",
      map_intersperse(fun column_sql_for_create_table/1, Columns, ", "), ", ",
-     table_constraint_sql(TblConstraints), 
+     table_constraint_sql(TblConstraints),
      ", CHECK ('", Type, "'='", Type, "'));"].
 
 %%--------------------------------------------------------------------
@@ -219,16 +219,16 @@ add_columns_sql(Tbl, Columns) ->
      map_intersperse(fun column_sql_for_create_table/1, Columns, ", "),";"].
 
 %%--------------------------------------------------------------------
-%% @doc 
-%%    Using Key as the column name and Data as list of column names 
-%%    and values pairs it creates the proper update SQL stmt for the 
+%% @doc
+%%    Using Key as the column name and Data as list of column names
+%%    and values pairs it creates the proper update SQL stmt for the
 %%    record with matching Value.
 %% @end
 %%--------------------------------------------------------------------
 -spec update_sql(table_id(), column_id(), sql_value(), [{column_id(), sql_value()}]) -> iolist().
 update_sql(Tbl, Key, Value, Data) ->
     {_, TName} = encode_table_id(Tbl),
-    ["UPDATE ", TName, " SET ", update_set_sql(Data), 
+    ["UPDATE ", TName, " SET ", update_set_sql(Data),
      " WHERE ", to_iolist(Key), " = ", value_to_sql(Value), ";"].
 
 %%--------------------------------------------------------------------
@@ -239,7 +239,7 @@ update_sql(Tbl, Key, Value, Data) ->
 -spec write_sql(table_id(), [{column_id(), sql_value()}]) -> iolist().
 write_sql(Tbl, Data) ->
     {Cols, Values} = lists:unzip(Data),
-    ["INSERT INTO ", to_iolist(Tbl), " (", write_col_sql(Cols), 
+    ["INSERT INTO ", to_iolist(Tbl), " (", write_col_sql(Cols),
      ") values (", write_value_sql(Values), ");"].
 
 %%--------------------------------------------------------------------
@@ -267,7 +267,7 @@ read_sql(Tbl, Columns) ->
 %%--------------------------------------------------------------------
 -spec read_sql(table_id(), column_id(), sql_value()) -> iolist().
 read_sql(Tbl, Key, Value) ->
-    ["SELECT * FROM ", to_iolist(Tbl), " WHERE ", to_iolist(Key), 
+    ["SELECT * FROM ", to_iolist(Tbl), " WHERE ", to_iolist(Key),
      " = ", value_to_sql(Value), ";"].
 
 %%--------------------------------------------------------------------
@@ -279,7 +279,7 @@ read_sql(Tbl, Key, Value) ->
 -spec read_sql(table_id(), column_id(), sql_value(), [column_id()]) -> iolist().
 read_sql(Tbl, Key, Value, Columns) ->
     ["SELECT ", read_cols_sql(Columns), " FROM ",
-     to_iolist(Tbl), " WHERE ", to_iolist(Key), " = ", 
+     to_iolist(Tbl), " WHERE ", to_iolist(Key), " = ",
      value_to_sql(Value), ";"].
 
 %%--------------------------------------------------------------------
@@ -289,7 +289,7 @@ read_sql(Tbl, Key, Value, Columns) ->
 %%--------------------------------------------------------------------
 -spec delete_sql(table_id(), column_id(), sql_value()) -> iolist().
 delete_sql(Tbl, Key, Value) ->
-    ["DELETE FROM ", to_iolist(Tbl), " WHERE ", to_iolist(Key), 
+    ["DELETE FROM ", to_iolist(Tbl), " WHERE ", to_iolist(Key),
      " = ", value_to_sql(Value), ";"].
 
 %%--------------------------------------------------------------------
@@ -317,7 +317,7 @@ half_byte_to_hex(X) -> $a + X - 10.
 -spec sql_number(string()) -> number() | {error, not_a_number}.
 sql_number(NumberStr) ->
     case string:to_integer(NumberStr) of
-        {Int, []} -> 
+        {Int, []} ->
             Int;
         _ ->
             case string:to_float(NumberStr) of
@@ -330,15 +330,15 @@ sql_number(NumberStr) ->
 
 -spec sql_string(string()) -> binary().
 sql_string(StringWithEscapedQuotes) ->
-    Res1 = re:replace(StringWithEscapedQuotes, "''", "'", 
+    Res1 = re:replace(StringWithEscapedQuotes, "''", "'",
                       [global, {return, binary}, unicode]),
     erlang:binary_part(Res1, 0, byte_size(Res1) - 1).
 
 -spec sql_blob(string()) -> binary().
 sql_blob([$' | Tail]) -> hex_str_to_bin(Tail, <<>>).
 
-hex_str_to_bin("'", Acc) -> 
-    Acc; %% single quote at the end of blob literal 
+hex_str_to_bin("'", Acc) ->
+    Acc; %% single quote at the end of blob literal
 hex_str_to_bin([X, Y | Tail], Acc) ->
     hex_str_to_bin(Tail, <<Acc/binary, (X * 16 + Y)>>).
 
@@ -360,7 +360,7 @@ pk_constraint_sql(Constraint) ->
 constraint_sql(Constraint) ->
     case Constraint of
         primary_key -> "PRIMARY KEY";
-        {primary_key, C} -> ["PRIMARY KEY ", pk_constraint_sql(C)]; 
+        {primary_key, C} -> ["PRIMARY KEY ", pk_constraint_sql(C)];
         unique -> "UNIQUE";
         not_null -> "NOT NULL";
         {default, DefaultValue} -> ["DEFAULT ", value_to_sql(DefaultValue)];
@@ -371,11 +371,11 @@ constraint_sql(Constraint) ->
 -spec table_constraint_sql(table_constraints()) -> iolist().
 table_constraint_sql(TableConstraint) ->
     case TableConstraint of
-        {primary_key, Columns} -> 
-            ["PRIMARY KEY(", 
+        {primary_key, Columns} ->
+            ["PRIMARY KEY(",
              map_intersperse(fun indexed_column_sql/1, Columns, ", "), ")"];
-        {unique, Columns} -> 
-            ["UNIQUE(", 
+        {unique, Columns} ->
+            ["UNIQUE(",
              map_intersperse(fun indexed_column_sql/1, Columns, ", "), ")"];
         %% TODO: foreign key
         {raw, S} when is_list(S) -> S;
@@ -406,7 +406,7 @@ to_iolist(B) when is_binary(B) ->
 
 %%--------------------------------------------------------------------
 %% @type sql_value() = number() | 'null' | iodata().
-%% 
+%%
 %% Values accepted in SQL statements include numbers, atom 'null',
 %% and io:iolist().
 %% @end
@@ -418,7 +418,7 @@ to_iolist(B) when is_binary(B) ->
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
 
--define(assertFlat(Expected, Value), 
+-define(assertFlat(Expected, Value),
         ?assertEqual(iolist_to_binary(Expected), iolist_to_binary(Value))).
 
 quote_test() ->
@@ -448,8 +448,8 @@ create_table_sql_test() ->
         create_table_sql("user", [{id, integer, [{primary_key, desc}]}, {name, text}])),
     ?assertFlat(
         "CREATE TABLE user (id INTEGER, name TEXT, PRIMARY KEY(id), CHECK ('am'='am'));",
-        create_table_sql(user, 
-                         [{id, integer}, {name, text}], 
+        create_table_sql(user,
+                         [{id, integer}, {name, text}],
                          [{primary_key, [id]}])).
 
 update_sql_test() ->
