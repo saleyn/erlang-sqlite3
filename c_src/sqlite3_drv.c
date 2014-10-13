@@ -47,6 +47,53 @@ static void append_to_dataset(int n, ErlDrvTermData* dataset, int term_count, ..
   va_end(new_terms);
 }
 
+static inline ptr_list *add_to_ptr_list(ptr_list *list, void *value_ptr) {
+  ptr_list* new_node = driver_alloc(sizeof(ptr_list));
+  new_node->head = value_ptr;
+  new_node->tail = list;
+  return new_node;
+}
+
+static inline void free_ptr_list(ptr_list *list, void(* free_head)(void *)) {
+  ptr_list* tail;
+  while (list) {
+    tail = list->tail;
+    (*free_head)(list->head);
+    driver_free(list);
+    list = tail;
+  }
+}
+
+#ifndef max // macro in Windows
+static inline int max(int a, int b) {
+  return a >= b ? a : b;
+}
+#endif
+
+static inline int sql_is_insert(const char *sql) {
+  // neither strcasestr nor strnicmp are portable, so have to do this
+  int i;
+  char *insert = "insert";
+  for (i = 0; i < 6; i++) {
+    if ((tolower(sql[i]) != insert[i]) && (sql[i] != ' '))
+      return 0;
+  }
+  return 1;
+}
+
+#ifdef DEBUG
+static void fprint_dataset(FILE* log, ErlDrvTermData* dataset, int term_count);
+#endif
+
+// required because driver_free(_binary) are macros in Windows
+static void driver_free_fun(void *ptr) {
+    driver_free(ptr);
+}
+
+static void driver_free_binary_fun(void *ptr) {
+    driver_free_binary((ErlDrvBinary *) ptr);
+}
+
 static ErlDrvEntry sqlite3_driver_entry = {
     NULL, /* init */
     start, /* startup (defined below) */
@@ -75,26 +122,6 @@ static ErlDrvEntry sqlite3_driver_entry = {
 
 DRIVER_INIT(sqlite3_driver) {
   return &sqlite3_driver_entry;
-}
-
-static inline ptr_list *add_to_ptr_list(ptr_list *list, void *value_ptr);
-static inline void free_ptr_list(ptr_list *list, void(* free_head)(void *));
-#ifndef max // macro in Windows
-static inline int max(int a, int b);
-#endif
-static inline int sql_is_insert(const char *sql);
-#ifdef DEBUG
-static void fprint_dataset(FILE* log, ErlDrvTermData* dataset, int term_count);
-#endif
-static void debug_printf(FILE* log, const char *fmt, ...);
-
-// required because driver_free(_binary) are macros in Windows
-static void driver_free_fun(void *ptr) {
-    driver_free(ptr); 
-}
-
-static void driver_free_binary_fun(void *ptr) {
-    driver_free_binary((ErlDrvBinary *) ptr); 
 }
 
 // Driver Start
@@ -1260,43 +1287,6 @@ static int unknown(sqlite3_drv_t *drv, char *command, int command_size) {
       spec, sizeof(spec) / sizeof(spec[0]));
 }
 
-static inline ptr_list *add_to_ptr_list(ptr_list *list, void *value_ptr) {
-  ptr_list* new_node = driver_alloc(sizeof(ptr_list));
-  new_node->head = value_ptr;
-  new_node->tail = NULL;
-  if (list) {
-    new_node->tail = list;
-  }
-  return new_node;
-}
-
-static inline void free_ptr_list(ptr_list *list, void(* free_head)(void *)) {
-  ptr_list* tail;
-  while (list) {
-    tail = list->tail;
-    (*free_head)(list->head);
-    driver_free(list);
-    list = tail;
-  }
-}
-
-#ifndef max // macro in Windows
-static inline int max(int a, int b) {
-  return a >= b ? a : b;
-}
-#endif
-
-static inline int sql_is_insert(const char *sql) {
-  // neither strcasestr nor strnicmp are portable, so have to do this
-  int i;
-  char *insert = "insert";
-  for (i = 0; i < 6; i++) {
-    if ((tolower(sql[i]) != insert[i]) && (sql[i] != ' '))
-      return 0;
-  }
-  return 1;
-}
-
 #ifdef DEBUG
 static void fprint_dataset(FILE* log, ErlDrvTermData *dataset, int term_count) {
   int i = 0, stack_size = 0;
@@ -1401,11 +1391,3 @@ static void fprint_dataset(FILE* log, ErlDrvTermData *dataset, int term_count) {
   }
 }
 #endif
-
-static void debug_printf(FILE* log, const char *fmt, ...) {
-  va_list args;
-  va_start(args, fmt);
-  vfprintf(log, fmt, args);
-  fflush(log);
-  va_end(args);
-}
