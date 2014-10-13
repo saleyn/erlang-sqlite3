@@ -216,7 +216,7 @@ static void stop(ErlDrvData handle) {
   
   close_result = sqlite3_close(drv->db);
   if (close_result != SQLITE_OK) {
-    fprintf(stderr, "Failed to close DB %s, some resources aren't finalized!", sqlite3_db_filename(drv->db, "main"));
+    LOG_ERROR("Failed to close DB %s, some resources aren't finalized!", sqlite3_db_filename(drv->db, "main"));
   }
   
   if (drv->log && (drv->log != stderr)) {
