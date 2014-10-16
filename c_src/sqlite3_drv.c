@@ -129,7 +129,7 @@ static ErlDrvData start(ErlDrvPort port, char* cmd) {
   struct sqlite3 *db = NULL;
   int status = 0;
   char *db_name = strstr(cmd, " ");
-  int db_name_len;
+  size_t db_name_len;
   char *db_name_copy;
 
 #ifdef DEBUG
@@ -871,7 +871,7 @@ static void sql_exec_async(void *_async_command) {
     end = async_command->end;
 
     while ((rest < end) && !(async_command->error_code)) {
-      result = sqlite3_prepare_v2(drv->db, rest, end - rest, &statement, &rest);
+      result = sqlite3_prepare_v2(drv->db, rest, (int) (end - rest), &statement, &rest);
       if (result != SQLITE_OK) {
         // sqlite doc says statement will be NULL here, so no need to finalize it
         num_statements++;
