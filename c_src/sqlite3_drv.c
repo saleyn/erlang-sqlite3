@@ -391,19 +391,25 @@ static inline async_sqlite3_command *make_async_command_script(
   return result;
 }
 
+static inline void exec_async_command(
+    sqlite3_drv_t *drv, void (*async_invoke)(void*),
+    async_sqlite3_command *async_command) {
+  if (sqlite3_threadsafe()) {
+    drv->async_handle = driver_async(drv->port, &drv->key, async_invoke,
+                                     async_command, sql_free_async);
+  } else {
+    async_invoke(async_command);
+    ready_async((ErlDrvData) drv, (ErlDrvThreadData) async_command);
+  }  
+}
+
 static inline int sql_exec_statement(
     sqlite3_drv_t *drv, sqlite3_stmt *statement) {
   async_sqlite3_command *async_command = make_async_command_statement(drv, statement, 1);
 
   LOG_DEBUG("Driver async: %d %p\n", SQLITE_VERSION_NUMBER, async_command->statement);
 
-  if (sqlite3_threadsafe()) {
-    drv->async_handle = driver_async(drv->port, &drv->key, sql_exec_async,
-                                     async_command, sql_free_async);
-  } else {
-    sql_exec_async(async_command);
-    ready_async((ErlDrvData) drv, (ErlDrvThreadData) async_command);
-  }
+  exec_async_command(drv, sql_exec_async, async_command);
   return 0;
 }
 
@@ -427,13 +433,7 @@ static int sql_exec_script(sqlite3_drv_t *drv, char *command, int command_size) 
 
   LOG_DEBUG("Driver async: %d %p\n", SQLITE_VERSION_NUMBER, async_command->statement);
 
-  if (sqlite3_threadsafe()) {
-    drv->async_handle = driver_async(drv->port, &drv->key, sql_exec_async,
-                                     async_command, sql_free_async);
-  } else {
-    sql_exec_async(async_command);
-    ready_async((ErlDrvData) drv, (ErlDrvThreadData) async_command);
-  }
+  exec_async_command(drv, sql_exec_async, async_command);
   return 0;
 }
 
@@ -1183,13 +1183,7 @@ static int prepared_step(sqlite3_drv_t *drv, char *buffer, int buffer_size) {
   statement = drv->prepared_stmts[prepared_index];
   async_command = make_async_command_statement(drv, statement, 0);
 
-  if (sqlite3_threadsafe()) {
-    drv->async_handle = driver_async(drv->port, &drv->key, sql_step_async,
-                                     async_command, sql_free_async);
-  } else {
-    sql_step_async(async_command);
-    ready_async((ErlDrvData) drv, (ErlDrvThreadData) async_command);
-  }
+  exec_async_command(drv, sql_step_async, async_command);
   return 0;
 }
 
