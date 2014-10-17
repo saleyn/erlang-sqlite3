@@ -423,13 +423,8 @@ static inline async_sqlite3_command *make_async_command_script(
 static inline void exec_async_command(
     sqlite3_drv_t *drv, void (*async_invoke)(void*),
     async_sqlite3_command *async_command) {
-  if (sqlite3_threadsafe()) {
-    drv->async_handle = driver_async(drv->port, &drv->key, async_invoke,
-                                     async_command, sql_free_async);
-  } else {
-    async_invoke(async_command);
-    ready_async((ErlDrvData) drv, (ErlDrvThreadData) async_command);
-  }  
+  drv->async_handle = driver_async(drv->port, &drv->key, async_invoke,
+                                   async_command, sql_free_async);
 }
 
 static inline int sql_exec_statement(
