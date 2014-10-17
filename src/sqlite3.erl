@@ -1021,7 +1021,9 @@ terminate(_Reason, #state{port = Port}) ->
         ok ->
             ok;
         {error, permanent} ->
-            ok; %% FIXME is this the correct behavior?
+            %% Older Erlang versions mark any driver using driver_async
+            %% as permanent
+            ok; 
         {error, ErrorDesc} ->
             error_logger:error_msg("Error unloading sqlite3 driver: ~s~n",
                                    [erl_ddll:format_error(ErrorDesc)])
