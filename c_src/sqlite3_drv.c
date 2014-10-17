@@ -218,7 +218,6 @@ static ErlDrvData start(ErlDrvPort port, char* cmd) {
   drv->db = db;
   drv->db_name = db_name_copy;
   drv->key = sql_async_key(db_name_copy, port);
-  drv->async_handle = 0;
   drv->prepared_stmts = NULL;
   drv->prepared_count = 0;
   drv->prepared_alloc = 0;
@@ -423,8 +422,14 @@ static inline async_sqlite3_command *make_async_command_script(
 static inline void exec_async_command(
     sqlite3_drv_t *drv, void (*async_invoke)(void*),
     async_sqlite3_command *async_command) {
-  drv->async_handle = driver_async(drv->port, &drv->key, async_invoke,
-                                   async_command, sql_free_async);
+  long status = driver_async(drv->port, &drv->key, async_invoke,
+                             async_command, sql_free_async);
+
+  // see https://groups.google.com/d/msg/erlang-programming/XiFR6xxhGos/B6ARBIlvpMUJ
+  if (status < 0) {
+    LOG_ERROR("driver_async call failed", 0);
+    output_error(drv, SQLITE_ERROR, "driver_async call failed");
+  }
 }
 
 static inline int sql_exec_statement(
@@ -712,8 +717,6 @@ static void sql_free_async(void *_async_command) {
   async_sqlite3_command *async_command =
     (async_sqlite3_command *) _async_command;
   driver_free(async_command->dataset);
-
-  async_command->driver_data->async_handle = 0;
 
   free_ptr_list(async_command->ptrs, &driver_free_fun);
 
