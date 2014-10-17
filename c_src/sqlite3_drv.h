@@ -50,10 +50,6 @@ typedef int ErlDrvSSizeT;
 #define CMD_SQL_EXEC_SCRIPT 12
 #define CMD_ENABLE_LOAD_EXTENSION 13
 
-// Number of bytes for each key
-// (160 bits for SHA1 hash)
-#define KEY_SIZE 20
-
 typedef struct ptr_list {
   void *head;
   struct ptr_list *tail;

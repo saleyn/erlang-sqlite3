@@ -93,6 +93,37 @@ static void driver_free_binary_fun(void *ptr) {
   driver_free_binary((ErlDrvBinary *) ptr);
 }
 
+// sdbm from http://www.cse.yorku.ca/~oz/hash.html
+unsigned int hash(const char *str) {
+  unsigned int hash = 0;
+  unsigned int c = 0;
+
+  do {
+    hash = c + (hash << 6) + (hash << 16) - hash;
+    c = *str++;
+  } while (c);
+
+  return hash;
+}
+
+// Returns a key determined by the file name for an on-disk database,
+// determined by the port for a private database.
+// This way all access to a single DB will go through one async thread.
+static inline unsigned int sql_async_key(char *db_name, ErlDrvPort port) {
+  const char *memory_db_name = ":memory:";
+
+  if (strcmp(db_name, memory_db_name)) {
+    return hash(db_name);
+  } else {
+    #if ERL_DRV_EXTENDED_MAJOR_VERSION > 2 || \
+      (ERL_DRV_EXTENDED_MAJOR_VERSION == 2 && ERL_DRV_EXTENDED_MINOR_VERSION >= 2)
+    return driver_async_port_key(port);
+    #else
+    return (unsigned int) (uintptr_t) port;
+    #endif
+  }
+}
+
 static ErlDrvEntry sqlite3_driver_entry = {
   NULL, /* init */
   start, /* startup (defined below) */
@@ -186,9 +217,7 @@ static ErlDrvData start(ErlDrvPort port, char* cmd) {
   drv->port = port;
   drv->db = db;
   drv->db_name = db_name_copy;
-  drv->key = 42;
-  // FIXME Any way to get canonical path to the DB?
-  // We need to ensure equal keys for different paths to the same file
+  drv->key = sql_async_key(db_name_copy, port);
   drv->async_handle = 0;
   drv->prepared_stmts = NULL;
   drv->prepared_count = 0;
