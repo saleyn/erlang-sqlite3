@@ -1,23 +1,27 @@
-sqlite3.plt
+# backups and VCS
 .svn
 */.svn
-*.db
-*.swp
 *~
-erl_crash.dump
-*.o
-.eunit
+*.swp
 *.orig
-ebin
-priv
+# build outputs
+.rebar/
+rebar.cross_compile.config
+config.tmp
+*.pdb
+*.beam
+ebin/
+priv/
+.eunit/
+doc/
+sqlite3.plt
 TEST*.xml
+*.db
 *.exp
 *.lib
 *.obj
 *.dll
-rebar.cross_compile.config
-config.tmp
-*.beam
+*.o
 *.so
-doc
-*.pdb
+# crash dump
+erl_crash.dump
