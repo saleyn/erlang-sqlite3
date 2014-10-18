@@ -422,14 +422,22 @@ static inline async_sqlite3_command *make_async_command_script(
 static inline void exec_async_command(
     sqlite3_drv_t *drv, void (*async_invoke)(void*),
     async_sqlite3_command *async_command) {
-  long status = driver_async(drv->port, &drv->key, async_invoke,
-                             async_command, sql_free_async);
+  // Check is required because we are sometimes accessing
+  // sqlite3 from the emulator thread. Could also be fixed
+  // by making _all_ access except start/stop go through driver_async
+  if (sqlite3_threadsafe()) {
+    long status = driver_async(drv->port, &drv->key, async_invoke,
+                               async_command, sql_free_async);
 
-  // see https://groups.google.com/d/msg/erlang-programming/XiFR6xxhGos/B6ARBIlvpMUJ
-  if (status < 0) {
-    LOG_ERROR("driver_async call failed", 0);
-    output_error(drv, SQLITE_ERROR, "driver_async call failed");
-  }
+    // see https://groups.google.com/d/msg/erlang-programming/XiFR6xxhGos/B6ARBIlvpMUJ
+    if (status < 0) {
+      LOG_ERROR("driver_async call failed", 0);
+      output_error(drv, SQLITE_ERROR, "driver_async call failed");
+    }
+  } else {
+    async_invoke(async_command);
+    ready_async((ErlDrvData) drv, (ErlDrvThreadData) async_command);
+  }  
 }
 
 static inline int sql_exec_statement(
