@@ -124,6 +124,68 @@ static inline unsigned int sql_async_key(char *db_name, ErlDrvPort port) {
   }
 }
 
+static inline int return_error(
+    sqlite3_drv_t *drv, int error_code, const char *error,
+    ErlDrvTermData **dataset_p, int *term_count_p, int *term_allocated_p,
+    int* error_code_p) {
+  if (error_code_p) {
+    *error_code_p = error_code;
+  }
+  EXTEND_DATASET_PTR(9);
+  append_to_dataset(9, *dataset_p, *term_count_p,
+    ERL_DRV_ATOM, drv->atom_error,
+    ERL_DRV_INT, (ErlDrvTermData) error_code,
+    ERL_DRV_STRING, (ErlDrvTermData) error, (ErlDrvTermData) strlen(error),
+    ERL_DRV_TUPLE, (ErlDrvTermData) 3);
+//  int i;
+//  for (i = 0; i < *term_count_p; i++) {
+//    printf("%d\n", (*dataset_p)[i]);
+//  }
+  return 0;
+}
+
+static inline int output_error(
+    sqlite3_drv_t *drv, int error_code, const char *error) {
+  int term_count = 2, term_allocated = 13;
+  // for some reason breaks if allocated as an array on stack
+  // even though it shouldn't be extended
+  ErlDrvTermData *dataset = driver_alloc(sizeof(ErlDrvTermData) * term_allocated);
+  dataset[0] = ERL_DRV_PORT;
+  dataset[1] = driver_mk_port(drv->port);
+  return_error(drv, error_code, error, &dataset, &term_count, &term_allocated, NULL);
+  term_count += 2;
+  dataset[11] = ERL_DRV_TUPLE;
+  dataset[12] = 2;
+  #ifdef PRE_R16B
+  driver_output_term(drv->port,
+  #else
+  erl_drv_output_term(dataset[1],
+  #endif
+    dataset, term_count);
+  driver_free(dataset);
+  return 0;
+}
+
+static inline int output_db_error(sqlite3_drv_t *drv) {
+  return output_error(drv, sqlite3_errcode(drv->db), sqlite3_errmsg(drv->db));
+}
+
+static inline int output_ok(sqlite3_drv_t *drv) {
+  // Return {Port, ok}
+  ErlDrvTermData spec[] = {
+      ERL_DRV_PORT, driver_mk_port(drv->port),
+      ERL_DRV_ATOM, drv->atom_ok,
+      ERL_DRV_TUPLE, 2
+  };
+  return
+    #ifdef PRE_R16B
+    driver_output_term(drv->port,
+    #else
+    erl_drv_output_term(spec[1],
+    #endif
+      spec, sizeof(spec) / sizeof(spec[0]));
+}
+
 static ErlDrvEntry sqlite3_driver_entry = {
   NULL, /* init */
   start, /* startup (defined below) */
@@ -196,16 +258,6 @@ static ErlDrvData start(ErlDrvPort port, char* cmd) {
 
   // Create and open the database
   status = sqlite3_open(db_name, &db);
-
-  if (status != SQLITE_OK) {
-    LOG_ERROR("Unable to open file: %s because %s\n\n", db_name, sqlite3_errmsg(db));
-    // We don't do this because there's no way to pass the error to Erlang
-    // sqlite3_close(db);
-    // driver_free(drv);
-    // return ERL_DRV_ERROR_GENERAL;
-  } else {
-    LOG_DEBUG("Opened file %s\n", db_name);
-  }
 #if defined(_MSC_VER)
 #pragma warning(default: 4306)
 #endif
@@ -231,6 +283,14 @@ static ErlDrvData start(ErlDrvPort port, char* cmd) {
   drv->atom_ok = driver_mk_atom("ok");
   drv->atom_done = driver_mk_atom("done");
   drv->atom_unknown_cmd = driver_mk_atom("unknown_command");
+
+  if (status != SQLITE_OK) {
+    LOG_ERROR("Unable to open file %s: \"%s\"\n\n", db_name, sqlite3_errmsg(db));
+    output_db_error(drv);
+  } else {
+    LOG_DEBUG("Opened file %s\n", db_name);
+    output_ok(drv);
+  }
 
   return (ErlDrvData) drv;
 }
@@ -260,8 +320,6 @@ static void stop(ErlDrvData handle) {
   driver_free(drv->db_name);
   driver_free(drv);
 }
-
-static inline int output_error(sqlite3_drv_t *drv, int error_code, const char *error);
 
 // Handle input from Erlang VM
 static ErlDrvSSizeT control(
@@ -310,68 +368,6 @@ static ErlDrvSSizeT control(
     }
   }
   return 0;
-}
-
-static inline int return_error(
-    sqlite3_drv_t *drv, int error_code, const char *error,
-    ErlDrvTermData **dataset_p, int *term_count_p, int *term_allocated_p,
-    int* error_code_p) {
-  if (error_code_p) {
-    *error_code_p = error_code;
-  }
-  EXTEND_DATASET_PTR(9);
-  append_to_dataset(9, *dataset_p, *term_count_p,
-    ERL_DRV_ATOM, drv->atom_error,
-    ERL_DRV_INT, (ErlDrvTermData) error_code,
-    ERL_DRV_STRING, (ErlDrvTermData) error, (ErlDrvTermData) strlen(error),
-    ERL_DRV_TUPLE, (ErlDrvTermData) 3);
-//  int i;
-//  for (i = 0; i < *term_count_p; i++) {
-//    printf("%d\n", (*dataset_p)[i]);
-//  }
-  return 0;
-}
-
-static inline int output_error(
-    sqlite3_drv_t *drv, int error_code, const char *error) {
-  int term_count = 2, term_allocated = 13;
-  // for some reason breaks if allocated as an array on stack
-  // even though it shouldn't be extended
-  ErlDrvTermData *dataset = driver_alloc(sizeof(ErlDrvTermData) * term_allocated);
-  dataset[0] = ERL_DRV_PORT;
-  dataset[1] = driver_mk_port(drv->port);
-  return_error(drv, error_code, error, &dataset, &term_count, &term_allocated, NULL);
-  term_count += 2;
-  dataset[11] = ERL_DRV_TUPLE;
-  dataset[12] = 2;
-  #ifdef PRE_R16B
-  driver_output_term(drv->port,
-  #else
-  erl_drv_output_term(dataset[1],
-  #endif
-    dataset, term_count);
-  driver_free(dataset);
-  return 0;
-}
-
-static inline int output_db_error(sqlite3_drv_t *drv) {
-  return output_error(drv, sqlite3_errcode(drv->db), sqlite3_errmsg(drv->db));
-}
-
-static inline int output_ok(sqlite3_drv_t *drv) {
-  // Return {Port, ok}
-  ErlDrvTermData spec[] = {
-      ERL_DRV_PORT, driver_mk_port(drv->port),
-      ERL_DRV_ATOM, drv->atom_ok,
-      ERL_DRV_TUPLE, 2
-  };
-  return
-    #ifdef PRE_R16B
-    driver_output_term(drv->port,
-    #else
-    erl_drv_output_term(spec[1],
-    #endif
-      spec, sizeof(spec) / sizeof(spec[0]));
 }
 
 static int enable_load_extension(sqlite3_drv_t* drv, char *buf, int len) {

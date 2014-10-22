@@ -344,6 +344,16 @@ issue23() ->
     ?assertEqual([SingleStmtResult, SingleStmtResult], ScriptResult),
     sqlite3:close(issue23).
 
+non_db_file_test() ->
+    process_flag(trap_exit, true),
+    ?assertMatch({error, _},
+        sqlite3:start_link(bad_file, [{file, "/"}])),
+    receive 
+        {'EXIT', _, _} -> ok;
+        _ -> ?assert(false)
+    end.
+
+
 % create, read, update, delete
 %%====================================================================
 %% Internal functions

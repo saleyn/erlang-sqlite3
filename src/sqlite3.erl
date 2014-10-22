@@ -778,18 +778,28 @@ value_to_sql(X) -> sqlite3_lib:value_to_sql(X).
 
 -spec init([any()]) -> {'ok', #state{}} | {'stop', string()}.
 init(Options) ->
-    DbFile = proplists:get_value(file, Options),
     PrivDir = get_priv_dir(),
     case erl_ddll:load(PrivDir, atom_to_list(?DRIVER_NAME)) of
         ok ->
-            Port = open_port({spawn, create_port_cmd(DbFile)}, [binary]),
-            {ok, #state{port = Port, ops = Options}};
+            do_init(Options);
         {error, permanent} -> %% already loaded!
-            Port = open_port({spawn, create_port_cmd(DbFile)}, [binary]),
-            {ok, #state{port = Port, ops = Options}};
+            do_init(Options);
         {error, Error} ->
             Msg = io_lib:format("Error loading ~p: ~s",
                                 [?DRIVER_NAME, erl_ddll:format_error(Error)]),
+            {stop, lists:flatten(Msg)}
+    end.
+
+-spec do_init([any()]) -> {'ok', #state{}} | {'stop', string()}.
+do_init(Options) ->
+    DbFile = proplists:get_value(file, Options),
+    Port = open_port({spawn, create_port_cmd(DbFile)}, [binary]),
+    receive
+        {Port, ok} ->
+            {ok, #state{port = Port, ops = Options}};
+        {Port, {error, Code, Message}} ->
+            Msg = io_lib:format("Error opening DB file ~p: code ~B, message '~s'",
+                                [DbFile, Code, Message]),
             {stop, lists:flatten(Msg)}
     end.
 
