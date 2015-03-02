@@ -40,6 +40,7 @@ all_test_() ->
      fun open_db/0,
      fun close_db/1,
      [?FuncTest(basic_functionality),
+      ?FuncTest(table_info),
       ?FuncTest(parametrized),
       ?FuncTest(negative),
       ?FuncTest(blob),
@@ -130,6 +131,19 @@ basic_functionality() ->
     ?assertEqual(
         ok,
         sqlite3:drop_table(ct, user)).
+
+table_info() ->
+    Sql = <<"CREATE TABLE table_info_test (
+               id INTEGER PRIMARY KEY,
+               ts TEXT default (timestamp('now')),
+               key TEXT);">>,
+    ExpectedTableInfo =
+    sqlite3:sql_exec(ct,Sql),
+    ?assertMatch(
+        [{id, integer, [primary_key]},
+         {ts, text, [{cant_parse_constraints, _}]},
+         {key, text}],
+        sqlite3:table_info(ct,table_info_test)).
 
 parametrized() ->
     drop_table_if_exists(ct, user1),

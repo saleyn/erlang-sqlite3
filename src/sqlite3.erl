@@ -1155,7 +1155,7 @@ parse_table_info(Info) ->
     Rest1 = list_init(Rest),
     Cols = string:tokens(Rest1, ","),
     build_table_info(lists:map(fun(X) ->
-                         string:tokens(X, " ")
+                         string:tokens(X, " \n\t")
                      end, Cols), []).
 
 build_table_info([], Acc) ->
@@ -1174,12 +1174,15 @@ build_constraints(["UNIQUE" | Tail]) ->
     [unique | build_constraints(Tail)];
 build_constraints(["NOT", "NULL" | Tail]) ->
     [not_null | build_constraints(Tail)];
+build_constraints(["NULL" | Tail]) ->
+    [null | build_constraints(Tail)];
 build_constraints(["DEFAULT", DefaultValue | Tail]) ->
     [{default, sqlite3_lib:sql_to_value(DefaultValue)} | build_constraints(Tail)];
-build_constraints(["CHECK", _ | Tail]) ->
-    %% currently ignored
-    build_constraints(Tail).
+% build_constraints(["CHECK", _ | Tail]) ->
+%     build_constraints(Tail);
 % build_constraints(["REFERENCES", Check | Tail]) -> ...
+build_constraints(UnknownConstraints) ->
+    [{cant_parse_constraints, string:join(UnknownConstraints, " ")}].
 
 build_primary_key_constraint(Tokens) -> build_primary_key_constraint(Tokens, []).
 
