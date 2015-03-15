@@ -53,7 +53,8 @@ all_test_() ->
       ?FuncTest(large_offset),
       ?FuncTest(issue23),
       ?FuncTest(issue13),
-      ?FuncTest(enable_load_extension)]}.
+      ?FuncTest(enable_load_extension),
+      ?FuncTest(changes)]}.
 
 anonymous_test() ->
     {ok, Pid} = sqlite3:open(anonymous, []),
@@ -349,6 +350,20 @@ issue13() ->
 enable_load_extension() ->
     ?assertEqual(ok, sqlite3:enable_load_extension(ct, 1)).
 
+changes() ->
+    sqlite3:open(changes, [in_memory]),
+    sqlite3:sql_exec(changes, "CREATE TABLE person(id INTEGER);"),
+    ?assertEqual(0, sqlite3:changes(changes)),
+    {rowid, _} = sqlite3:sql_exec(changes, "INSERT INTO person (id) VALUES (1)"),
+    {rowid, _} = sqlite3:sql_exec(changes, "INSERT INTO person (id) VALUES (2)"),
+    {rowid, _} = sqlite3:sql_exec(changes, "INSERT INTO person (id) VALUES (3)"),
+    {rowid, _} = sqlite3:sql_exec(changes, "INSERT INTO person (id) VALUES (4)"),
+    {rowid, _} = sqlite3:sql_exec(changes, "INSERT INTO person (id) VALUES (5)"),
+    ?assertEqual(1, sqlite3:changes(changes)),
+    ok = sqlite3:sql_exec(changes, "UPDATE person SET id = 10"),
+    ?assertEqual(5, sqlite3:changes(changes)),
+    sqlite3:close(changes).
+
 issue23() ->
     sqlite3:open(issue23, [in_memory]),
     ok = sqlite3:create_table(issue23, issue23, [{issue23, integer}]),
@@ -362,7 +377,7 @@ non_db_file_test() ->
     process_flag(trap_exit, true),
     ?assertMatch({error, _},
         sqlite3:start_link(bad_file, [{file, "/"}])),
-    receive 
+    receive
         {'EXIT', _, _} -> ok;
         _ -> ?assert(false)
     end.
