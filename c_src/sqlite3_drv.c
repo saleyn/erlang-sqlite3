@@ -307,12 +307,12 @@ static void stop(ErlDrvData handle) {
     }
     driver_free(drv->prepared_stmts);
   }
-  
+
   close_result = sqlite3_close(drv->db);
   if (close_result != SQLITE_OK) {
     LOG_ERROR("Failed to close DB %s, some resources aren't finalized!", drv->db_name);
   }
-  
+
   if (drv->log && (drv->log != stderr)) {
     fclose(drv->log);
   }
@@ -363,11 +363,34 @@ static ErlDrvSSizeT control(
     case CMD_ENABLE_LOAD_EXTENSION:
       enable_load_extension(drv, buf, (int) len);
       break;
+    case CMD_CHANGES:
+      changes(drv, buf, (int) len);
+      break;
     default:
       unknown(drv, buf, (int) len);
     }
   }
   return 0;
+}
+
+static int changes(sqlite3_drv_t *drv, char *buf, int len) {
+    int changes = sqlite3_changes(drv->db);
+    ErlDrvTermData spec[6];
+
+    spec[0] = ERL_DRV_PORT;
+    spec[1] = driver_mk_port(drv->port);
+    spec[2] = ERL_DRV_UINT;
+    spec[3] = changes;
+    spec[4] = ERL_DRV_TUPLE;
+    spec[5] = 2;
+
+    return
+    #ifdef PRE_R16B
+    driver_output_term(drv->port,
+    #else
+    erl_drv_output_term(spec[1],
+    #endif
+    spec, sizeof(spec) / sizeof(spec[0]));
 }
 
 static int enable_load_extension(sqlite3_drv_t* drv, char *buf, int len) {
@@ -433,7 +456,7 @@ static inline void exec_async_command(
   } else {
     async_invoke(async_command);
     ready_async((ErlDrvData) drv, (ErlDrvThreadData) async_command);
-  }  
+  }
 }
 
 static inline int sql_exec_statement(

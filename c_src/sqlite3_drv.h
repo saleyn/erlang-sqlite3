@@ -49,6 +49,7 @@ typedef int ErlDrvSSizeT;
 #define CMD_PREPARED_COLUMNS 11
 #define CMD_SQL_EXEC_SCRIPT 12
 #define CMD_ENABLE_LOAD_EXTENSION 13
+#define CMD_CHANGES 14
 
 typedef struct ptr_list {
   void *head;
@@ -118,6 +119,7 @@ static void sql_free_async(void *async_command);
 static void ready_async(ErlDrvData drv_data, ErlDrvThreadData thread_data);
 static int unknown(sqlite3_drv_t *bdb_drv, char *buf, int len);
 static int enable_load_extension(sqlite3_drv_t *drv, char *buf, int len);
+static int changes(sqlite3_drv_t *drv, char *buf, int len);
 
 #if defined(_MSC_VER)
 #pragma warning(default: 4201)

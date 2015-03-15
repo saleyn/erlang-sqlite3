@@ -40,6 +40,7 @@
 -export([delete/2, delete/3, delete_timeout/4]).
 -export([drop_table/1, drop_table/2, drop_table_timeout/3]).
 -export([vacuum/0, vacuum/1, vacuum_timeout/2]).
+-export([changes/1]).
 
 %% -export([create_function/3]).
 
@@ -163,6 +164,18 @@ stop() ->
 
 enable_load_extension(Db, Value) ->
     gen_server:call(Db, {enable_load_extension, Value}).
+
+%%--------------------------------------------------------------------
+%% @doc
+%%   Get affected rows.
+%% @end
+%%--------------------------------------------------------------------
+
+changes(Db) ->
+    gen_server:call(Db, changes).
+
+changes(Db, Timeout) ->
+    gen_server:call(Db, changes, Timeout).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -974,6 +987,9 @@ handle_call({enable_load_extension, _Value} = Payload, _From, State = #state{por
         Port, refs = _Refs}) ->
     Reply = exec(Port, Payload),
     {reply, Reply, State};
+handle_call(changes = Payload, _From, State = #state{port = Port, refs = _Refs}) ->
+    Reply = exec(Port, Payload),
+    {reply, Reply, State};
 handle_call({Cmd, Ref}, _From, State = #state{port = Port, refs = Refs}) ->
     Reply = case dict:find(Ref, Refs) of
                 {ok, Index} ->
@@ -1033,7 +1049,7 @@ terminate(_Reason, #state{port = Port}) ->
         {error, permanent} ->
             %% Older Erlang versions mark any driver using driver_async
             %% as permanent
-            ok; 
+            ok;
         {error, ErrorDesc} ->
             error_logger:error_msg("Error unloading sqlite3 driver: ~s~n",
                                    [erl_ddll:format_error(ErrorDesc)])
@@ -1074,6 +1090,7 @@ get_priv_dir() ->
 -define(PREPARED_COLUMNS, 11).
 -define(SQL_EXEC_SCRIPT, 12).
 -define(ENABLE_LOAD_EXTENSION, 13).
+-define(CHANGES, 14).
 
 create_port_cmd(DbFile) ->
     atom_to_list(?DRIVER_NAME) ++ " " ++ DbFile.
@@ -1125,6 +1142,9 @@ exec(Port, {enable_load_extension, Value}) ->
         _ -> 0
     end,
     port_control(Port, ?ENABLE_LOAD_EXTENSION, <<Payload>>),
+    wait_result(Port);
+exec(Port, changes) ->
+    port_control(Port, ?CHANGES, <<"">>),
     wait_result(Port);
 exec(Port, {Cmd, Index}) when is_integer(Index) ->
     CmdCode = case Cmd of
