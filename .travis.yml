@@ -5,3 +5,19 @@ otp_release:
   - R16B03-1
   - R15B03
   - R14B04
+
+env:
+  global:
+   # The next declaration is the encrypted COVERITY_SCAN_TOKEN, created
+   #   via the "travis encrypt" command using the project repo's public key
+   - secure: "j23Qpd6Si4XDE4y8GMkUIBUkMsJO3OYi13xkctU5bsT83CtGBUJMIXVTLOUPlyGkraK+QZhSDNJi4n9b/nsuDyixUo6N5sfCfAaKvp2gz/qnFEym3WwTaepm5qNoJaAtWFndZhSN6GQqq+lJd7MgPH4ePeMA8yuAlcad3EtDyDM="
+
+addons:
+  coverity_scan:
+    project:
+      name: "alexeyr/erlang-sqlite3"
+      description: "Build submitted via Travis CI"
+    notification_email: alexey.v.romanov@gmail.com
+    build_command_prepend: "make clean"
+    build_command:   "make"
+    branch_pattern: coverity_scan
