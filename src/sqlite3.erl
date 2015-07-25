@@ -40,7 +40,7 @@
 -export([delete/2, delete/3, delete_timeout/4]).
 -export([drop_table/1, drop_table/2, drop_table_timeout/3]).
 -export([vacuum/0, vacuum/1, vacuum_timeout/2]).
--export([changes/1]).
+-export([changes/1, changes/2]).
 
 %% -export([create_function/3]).
 
