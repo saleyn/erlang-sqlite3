@@ -138,7 +138,6 @@ table_info() ->
                id INTEGER PRIMARY KEY,
                ts TEXT default (timestamp('now')),
                key TEXT);">>,
-    ExpectedTableInfo =
     sqlite3:sql_exec(ct,Sql),
     ?assertMatch(
         [{id, integer, [primary_key]},
