@@ -13,7 +13,7 @@
 
 %% API
 -export([col_type_to_atom/1]).
--export([value_to_sql/1, value_to_sql_unsafe/1, sql_to_value/1, escape/1, bin_to_hex/1]).
+-export([value_to_sql/1, value_to_sql_unsafe/1, sql_to_value/1, bin_to_hex/1]).
 -export([write_value_sql/1, write_col_sql/1]).
 -export([create_table_sql/2, create_table_sql/3, drop_table_sql/1]).
 -export([add_columns_sql/2]).
@@ -74,15 +74,11 @@ col_type_to_atom(String) ->
 %%--------------------------------------------------------------------
 -spec value_to_sql_unsafe(sql_value()) -> iolist().
 value_to_sql_unsafe(X) ->
-    case X of
-        _ when is_integer(X)   -> integer_to_list(X);
-        _ when is_float(X)     -> float_to_list(X);
-        true -> "1";
-        false -> "0";
-        undefined  -> "NULL";
-        ?NULL_ATOM -> "NULL";
-        {blob, Blob} -> ["x'", bin_to_hex(Blob), $'];
-        _            -> [$', unicode:characters_to_binary(X), $'] %% assumes no $' inside strings!
+    if
+        is_binary(X) orelse is_list(X) ->
+            [$', binary_or_unicode_to_binary(X), $'];
+        true ->
+            value_to_sql(X)
     end.
 
 %%--------------------------------------------------------------------
@@ -104,7 +100,9 @@ value_to_sql(X) ->
         undefined  -> "NULL";
         ?NULL_ATOM -> "NULL";
         {blob, Blob} -> ["x'", bin_to_hex(Blob), $'];
-        _            -> [$', unicode:characters_to_binary(escape(X)), $']
+        _ when is_binary(X) orelse is_list(X) ->
+            Bin = binary_or_unicode_to_binary(X),
+            [$', binary:replace(Bin, <<"'">>, <<"''">>, [global]), $']
     end.
 
 %%--------------------------------------------------------------------
@@ -151,15 +149,16 @@ write_col_sql(Cols) ->
 %% @doc Returns copy of IoData with all ' replaced by ''
 %% @end
 %%--------------------------------------------------------------------
--spec escape(iodata()) -> iodata().
-escape(IoData) -> re:replace(IoData, "'", "''", [global, unicode]).
+-spec binary_or_unicode_to_binary(binary() | unicode:charlist()) -> binary().
+binary_or_unicode_to_binary(Bin) when is_binary(Bin) -> Bin;
+binary_or_unicode_to_binary(CharList) when is_list(CharList) -> unicode:characters_to_binary(CharList).
 
 %%--------------------------------------------------------------------
 %% @doc Converts a plain binary to its hexadecimal encoding, to be
 %%      passed as a blob literal.
 %% @end
 %%--------------------------------------------------------------------
--spec bin_to_hex(iodata()) -> binary().
+-spec bin_to_hex(binary()) -> binary().
 bin_to_hex(Binary) -> << <<(half_byte_to_hex(X)):8>> || <<X:4>> <= Binary>>.
 
 %%--------------------------------------------------------------------

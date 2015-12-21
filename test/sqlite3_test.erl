@@ -49,6 +49,7 @@ all_test_() ->
       ?FuncTest(nonexistent_table_info),
       ?FuncTest(large_number),
       ?FuncTest(unicode),
+      ?FuncTest(latin1_binary),
       ?FuncTest(acc_string_encoding),
       ?FuncTest(large_offset),
       ?FuncTest(issue23),
@@ -171,7 +172,7 @@ parametrized() ->
 negative() ->
     drop_table_if_exists(ct, negative),
     sqlite3:create_table(ct, negative, [{id, int}]),
-    ?assertEqual({error, badarg},
+    ?assertMatch({error, _},
                  sqlite3:write(ct, negative, [{id, bad_sql_value}])).
 
 blob() ->
@@ -253,6 +254,14 @@ unicode() ->
     sqlite3:create_table(ct, unicode, [{str, text}]),
     sqlite3:write(ct, unicode, [{str, UnicodeString}]),
     ?assertEqual([{unicode:characters_to_binary(UnicodeString)}], rows(sqlite3:read_all(ct, unicode))).
+
+latin1_binary() ->
+    Latin1String = <<"^PUjC^PUjC",176,230,176>>, %% "^PUjC^PUjC°æ°" in Latin-1
+    sqlite3:open(issue43, [in_memory]),
+    ok = sqlite3:create_table(issue43, issue43, [{str, text}]),
+    sqlite3:write(issue43, issue43, [{str, Latin1String}]),
+    ?assertEqual([{Latin1String}], rows(sqlite3:read_all(issue43, issue43))),
+    sqlite3:close(issue43).
 
 acc_string_encoding() ->
     ?assertEqual([{62}], rows(sqlite3:sql_exec(ct, "SELECT ? + ?", [30,32]))).
