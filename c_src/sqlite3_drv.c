@@ -456,7 +456,7 @@ static inline void exec_async_command(
 
     // see https://groups.google.com/d/msg/erlang-programming/XiFR6xxhGos/B6ARBIlvpMUJ
     if (status < 0) {
-      LOG_ERROR("driver_async call failed", 0);
+      LOG_ERROR("driver_async call failed: %ld", status);
       output_error(drv, SQLITE_ERROR, "driver_async call failed");
     }
   } else {
