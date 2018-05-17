@@ -1051,10 +1051,22 @@ static void sql_step_async(void *_async_command) {
     async_command->binaries = binaries;
     break;
   case SQLITE_DONE:
-    EXTEND_DATASET_DIRECT(4);
-    append_to_dataset(4, dataset, term_count,
-      ERL_DRV_PORT, driver_mk_port(drv->port),
-      ERL_DRV_ATOM, drv->atom_done);
+    if (sql_is_insert(sqlite3_sql(statement))) {
+      ErlDrvSInt64 *rowid_ptr = driver_alloc(sizeof(ErlDrvSInt64));
+      *rowid_ptr = (ErlDrvSInt64) sqlite3_last_insert_rowid(drv->db);
+      ptrs = add_to_ptr_list(ptrs, rowid_ptr);
+      EXTEND_DATASET_DIRECT(8);
+      append_to_dataset(8, dataset, term_count,
+        ERL_DRV_PORT, driver_mk_port(drv->port),
+        ERL_DRV_ATOM, drv->atom_rowid,
+        ERL_DRV_INT64, (ErlDrvTermData) rowid_ptr,
+        ERL_DRV_TUPLE, (ErlDrvTermData) 2);
+    } else {
+      EXTEND_DATASET_DIRECT(4);
+      append_to_dataset(4, dataset, term_count,
+        ERL_DRV_PORT, driver_mk_port(drv->port),
+        ERL_DRV_ATOM, drv->atom_done);
+    }
     sqlite3_reset(statement);
     break;
   case SQLITE_BUSY:
