@@ -36,6 +36,8 @@ col_type_to_string(double) ->
     "REAL";
 col_type_to_string(real) ->
     "REAL";
+col_type_to_string(numeric) ->
+    "NUMERIC";
 col_type_to_string(blob) ->
     "BLOB";
 col_type_to_string(Atom) when is_atom(Atom) ->
@@ -363,6 +365,7 @@ constraint_sql(Constraint) ->
         unique -> "UNIQUE";
         not_null -> "NOT NULL";
         {default, DefaultValue} -> ["DEFAULT ", value_to_sql(DefaultValue)];
+        {references, Table, Column} when is_atom(Table), is_atom(Column)-> [ "REFERENCES ", atom_to_list(Table), "(", atom_to_list(Column), ")" ];
         {raw, S} when is_list(S) -> S;
         _ when is_list(Constraint) -> map_intersperse(fun constraint_sql/1, Constraint, " ")
     end.
