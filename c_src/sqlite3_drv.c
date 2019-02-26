@@ -5,6 +5,18 @@
 // MSVC needs "__inline" instead of "inline" in C-source files.
 #if defined(_MSC_VER)
 #define inline __inline
+
+FILE* __cdecl __iob_func(void) {
+  static FILE _iob[3];
+  static int  _initialized;
+  if (!_initialized) {
+      _iob[0] = *stdin;
+      _iob[1] = *stdout;
+      _iob[2] = *stderr;
+      _initialized = 1;
+  }
+  return _iob;
+}
 #endif
 
 #ifdef DEBUG

@@ -34,6 +34,8 @@ typedef int ErlDrvSSizeT;
 #pragma warning(disable: 4201)
 #pragma warning(disable: 4127)
 #pragma warning(disable: 4820)
+
+extern FILE* __cdecl __iob_func(void);
 #endif
 
 // Binary commands between Erlang VM and Driver
