@@ -31,7 +31,7 @@
          create_table_timeout/5]).
 -export([add_columns/2, add_columns/3]).
 -export([list_tables/0, list_tables/1, list_tables_timeout/2,
-         table_info/1, table_info/2, table_info_timeout/3]).
+         table_info/1, table_info/2, table_info_timeout/3, describe_table/2]).
 -export([write/2, write/3, write_timeout/4, write_many/2, write_many/3,
          write_many_timeout/4]).
 -export([update/3, update/4, update_timeout/5]).
@@ -241,6 +241,23 @@ sql_exec_timeout(Db, SQL, Params, Timeout) ->
 -spec sql_exec_script(db(), iodata()) -> [sql_result()].
 sql_exec_script(Db, SQL) ->
     gen_server:call(Db, {sql_exec_script, SQL}).
+
+%%--------------------------------------------------------------------
+%% @doc
+%%   Executes the Sql statement directly on the Db database. Returns the
+%%   result of the Sql call.
+%% @end
+%%--------------------------------------------------------------------
+-spec describe_table(db(), atom()) ->
+  [{column_id(), Type::string(), NotNull::boolean(), term(), PrivKey::boolean()}].
+describe_table(Db, Table) when is_atom(Table) ->
+    case gen_server:call(Db, {describe_table, Table}) of
+      ok -> not_found;
+      [_, {rows, Rows}] ->
+        ToBool = fun(1) -> true; (0) -> false end,
+        [{binary_to_atom(F, utf8), binary_to_list(T), ToBool(NN), D, ToBool(PK)}
+          || {_, F, T, NN, D, PK} <- Rows]
+    end.
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -990,6 +1007,9 @@ handle_call({enable_load_extension, _Value} = Payload, _From, State = #state{por
 handle_call(changes = Payload, _From, State = #state{port = Port, refs = _Refs}) ->
     Reply = exec(Port, Payload),
     {reply, Reply, State};
+handle_call({describe_table, Table}, _From, State) ->
+    SQL = sqlite3_lib:describe_table(Table),
+    do_handle_call_sql_exec(SQL, State);
 handle_call({Cmd, Ref}, _From, State = #state{port = Port, refs = Refs}) ->
     Reply = case dict:find(Ref, Refs) of
                 {ok, Index} ->
@@ -1175,7 +1195,7 @@ parse_table_info(Info) ->
     Rest1 = list_init(Rest),
     Cols = string:tokens(Rest1, ","),
     build_table_info(lists:map(fun(X) ->
-                         string:tokens(X, " \n\t")
+                         string:tokens(X, " \r\n\t")
                      end, Cols), []).
 
 build_table_info([], Acc) ->

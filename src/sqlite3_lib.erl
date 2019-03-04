@@ -16,7 +16,7 @@
 -export([value_to_sql/1, value_to_sql_unsafe/1, sql_to_value/1, bin_to_hex/1]).
 -export([write_value_sql/1, write_col_sql/1]).
 -export([create_table_sql/2, create_table_sql/3, drop_table_sql/1]).
--export([add_columns_sql/2]).
+-export([add_columns_sql/2, describe_table/1]).
 -export([write_sql/2, update_sql/4, update_set_sql/1, delete_sql/3]).
 -export([read_sql/1, read_sql/2, read_sql/3, read_sql/4, read_cols_sql/1]).
 
@@ -300,6 +300,15 @@ delete_sql(Tbl, Key, Value) ->
 -spec drop_table_sql(table_id()) -> iolist().
 drop_table_sql(Tbl) ->
     ["DROP TABLE ", to_iolist(Tbl), ";"].
+
+%%--------------------------------------------------------------------
+%% @doc Describe table structure
+%% @end
+%%--------------------------------------------------------------------
+-spec describe_table(table_id()) ->
+  [{column_id(), Type::string(), NotNull::boolean(), term(), PrivKey::boolean()}].
+describe_table(Table) when is_atom(Table) ->
+  ["PRAGMA table_info(", atom_to_list(Table), ");"].
 
 %%====================================================================
 %% Internal functions
