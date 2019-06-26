@@ -809,14 +809,15 @@ value_to_sql(X) -> sqlite3_lib:value_to_sql(X).
 -spec init([any()]) -> {'ok', #state{}} | {'stop', string()}.
 init(Options) ->
     PrivDir = get_priv_dir(),
-    case erl_ddll:load(PrivDir, driver_name()) of
+    Driver  = driver_name(),
+    case erl_ddll:load(PrivDir, Driver) of
         ok ->
             do_init(Options);
         {error, permanent} -> %% already loaded!
             do_init(Options);
         {error, Error} ->
-            Msg = io_lib:format("Error loading ~p: ~s",
-                                [?DRIVER_NAME, erl_ddll:format_error(Error)]),
+            Msg = io_lib:format("Error loading ~s: ~s",
+                                [Driver, erl_ddll:format_error(Error)]),
             {stop, lists:flatten(Msg)}
     end.
 
@@ -1063,7 +1064,8 @@ terminate(_Reason, #state{port = Port}) ->
         _ ->
             port_close(Port)
     end,
-    case erl_ddll:unload(?DRIVER_NAME) of
+    Driver = driver_name(),
+    case erl_ddll:unload(Driver) of
         ok ->
             ok;
         {error, permanent} ->
@@ -1071,8 +1073,8 @@ terminate(_Reason, #state{port = Port}) ->
             %% as permanent
             ok;
         {error, ErrorDesc} ->
-            error_logger:error_msg("Error unloading sqlite3 driver: ~s~n",
-                                   [erl_ddll:format_error(ErrorDesc)])
+            error_logger:error_msg("Error unloading ~s driver: ~s~n",
+                                   [Driver, erl_ddll:format_error(ErrorDesc)])
     end,
     ok.
 
