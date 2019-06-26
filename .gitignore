@@ -25,3 +25,5 @@ TEST*.xml
 *.so
 # crash dump
 erl_crash.dump
+sqlite3.dll
+sqlite3.so
