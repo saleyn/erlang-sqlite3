@@ -25,6 +25,15 @@ static int DEBUG = 1;
 static int DEBUG = 0;
 #endif
 
+#define Q(x) #x
+#define QUOTE(x) Q(x)
+
+#ifdef DRIVER_SFX
+#define ADD_DRIVER_SFX(name) name ## QUOTE(DRIVER_SFX)
+#else
+#define ADD_DRIVER_SFX(name) name
+#endif
+
 #define LOG_DEBUG(M, ...) do { \
     if (DEBUG && drv->log) \
       fprintf(drv->log, "[DEBUG] (%s:%d) " M "\n", __FILE__, __LINE__, __VA_ARGS__); \
@@ -205,7 +214,7 @@ static ErlDrvEntry sqlite3_driver_entry = {
   NULL, /* output */
   NULL, /* ready_input */
   NULL, /* ready_output */
-  "sqlite3_drv", /* the name of the driver */
+  ADD_DRIVER_SFX("sqlite3_drv"), /* the name of the driver */
   NULL, /* finish */
   NULL, /* handle */
   control, /* control */

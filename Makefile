@@ -23,6 +23,7 @@ clean:
 	if exist c_src\*.o del /Q c_src\*.o
 	if exist dialyzer del /Q dialyzer
 	if exist sqlite3.* del /Q sqlite3.*
+	if exist *.pdb del /Q *.pdb
 
 docs: compile
 	rebar doc

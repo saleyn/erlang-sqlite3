@@ -809,7 +809,7 @@ value_to_sql(X) -> sqlite3_lib:value_to_sql(X).
 -spec init([any()]) -> {'ok', #state{}} | {'stop', string()}.
 init(Options) ->
     PrivDir = get_priv_dir(),
-    case erl_ddll:load(PrivDir, atom_to_list(?DRIVER_NAME)) of
+    case erl_ddll:load(PrivDir, driver_name()) of
         ok ->
             do_init(Options);
         {error, permanent} -> %% already loaded!
@@ -1252,6 +1252,19 @@ cast_table_name(Bin, SQL) ->
 
 list_init([_]) -> [];
 list_init([H|T]) -> [H|list_init(T)].
+
+driver_name() ->
+    Sfx =
+        case erlang:system_info(system_architecture) of
+            "win32" ->
+                case os:getenv("PROCESSOR_ARCHITECTURE") of
+                    "x86" -> "_x86";
+                    _     -> "_x64"
+                end;
+            "x86_64" ++ _ -> "_x64";
+            _             -> "_x86"
+        end,
+    atom_to_list(?DRIVER_NAME) ++ Sfx.
 
 %% conflict_clause(["ON", "CONFLICT", ResolutionString | Tail]) ->
 %%     Resolution = case ResolutionString of

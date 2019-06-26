@@ -1,0 +1,17 @@
+Sfx =
+  case erlang:system_info(system_architecture) of
+    "win32" ->
+      case os:getenv("PROCESSOR_ARCHITECTURE") of
+        "x86"     -> "_x86";
+        _         -> "_x64"
+      end;
+    "x86_64" ++ _ -> "_x64";
+    _             -> "_x86"
+  end,
+Driver   = "priv/sqlite3_drv" ++ Sfx ++ ".so",
+PortSpec = {port_specs, [{Driver, ["c_src/*.c"]}]},
+PortEnv  = proplists:get_value(port_env, CONFIG),
+PortEnv1 = [{"CFLAGS", "-DDRIVER_SFX="++Sfx} | PortEnv],
+Cfg0     = lists:keyreplace(port_env,   1, CONFIG, {port_env, PortEnv1}),
+Cfg1     = lists:keyreplace(port_specs, 1, Cfg0,   PortSpec),
+[{artifacts, [Driver]} | Cfg1].
