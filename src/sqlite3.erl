@@ -1113,7 +1113,7 @@ get_priv_dir() ->
 -define(CHANGES, 14).
 
 create_port_cmd(DbFile) ->
-    atom_to_list(?DRIVER_NAME) ++ " " ++ DbFile.
+    driver_name() ++ " " ++ DbFile.
 
 do_handle_call_sql_exec(SQL, State) ->
     Reply = do_sql_exec(SQL, State),
