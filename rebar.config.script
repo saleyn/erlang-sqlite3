@@ -1,6 +1,7 @@
 Is86 = fun("x86_64" ++ _) -> false;
           ("win32")       -> os:getenv("Platform")              == "x86" orelse
-                             os:getenv("PLATFORM_ARCHITECTURE") == "x86";
+                             os:getenv("PLATFORM_ARCHITECTURE") == "x86" orelse
+                             os:getenv("MSYSTEM_CARCH")         == "x86";
           (_)             -> true
        end,
 Sfx =
