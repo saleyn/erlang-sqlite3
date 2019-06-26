@@ -17,8 +17,9 @@ tests: compile sqlite3.dll
 clean:
 	if exist deps del /Q deps
 	if exist ebin del /Q ebin
-	if exist priv del /Q priv
 	if exist doc\* del /Q doc\*
+	if exist priv\*.exp del /Q priv\*.exp
+	if exist priv\*.lib del /Q priv\*.lib
 	if exist .eunit del /Q .eunit
 	if exist c_src\*.o del /Q c_src\*.o
 	if exist dialyzer del /Q dialyzer

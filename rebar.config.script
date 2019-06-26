@@ -1,12 +1,12 @@
+Is86 = fun("x86_64" ++ _) -> false;
+          ("win32")       -> os:getenv("Platform")              == "x86" orelse
+                             os:getenv("PLATFORM_ARCHITECTURE") == "x86";
+          (_)             -> true
+       end,
 Sfx =
-  case erlang:system_info(system_architecture) of
-    "win32" ->
-      case os:getenv("PROCESSOR_ARCHITECTURE") of
-        "x86"     -> "_x86";
-        _         -> "_x64"
-      end;
-    "x86_64" ++ _ -> "_x64";
-    _             -> "_x86"
+  case Is86(erlang:system_info(system_architecture)) of
+    true  -> "_x86";
+    false -> "_x64"
   end,
 Driver   = "priv/sqlite3_drv" ++ Sfx ++ ".so",
 PortSpec = {port_specs, [{Driver, ["c_src/*.c"]}]},
