@@ -17,6 +17,7 @@ priv/*.lib
 doc/
 sqlite3.plt
 sqlite3.dll
+sqlite3.so
 TEST*.xml
 *.db
 *.exp
