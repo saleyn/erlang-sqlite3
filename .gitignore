@@ -16,6 +16,7 @@ priv/*.lib
 .eunit/
 doc/
 sqlite3.plt
+sqlite3.dll
 TEST*.xml
 *.db
 *.exp
@@ -25,3 +26,4 @@ TEST*.xml
 *.so
 # crash dump
 erl_crash.dump
+.rebar3
