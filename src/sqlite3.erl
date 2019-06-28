@@ -865,7 +865,7 @@ handle_call({table_info, Tbl}, _From, State) when is_atom(Tbl) ->
             TableSql = proplists:get_value(rows, Data),
             case TableSql of
                 [{Info}] ->
-                    ColumnList = parse_table_info(binary_to_list(Info)),
+                    ColumnList = parse_table_info(Info),
                     {reply, ColumnList, State};
                 [] ->
                     {reply, table_does_not_exist, State}
@@ -1198,39 +1198,128 @@ wait_result(Port) ->
     end.
 
 parse_table_info(Info) ->
-    Info1 = re:replace(Info, <<"CHECK \\('(bin|lst|am)'='(bin|lst|am)'\\)\\)">>, "", [{return, list}]),
-    {_, [$(|Rest]} = lists:splitwith(fun(C) -> C =/= $( end, Info1),
-    %% remove ) at the end
-    Rest1 = list_init(Rest),
-    Cols = string:tokens(Rest1, ","),
-    build_table_info(lists:map(fun(X) ->
-                         string:tokens(X, " \r\n\t")
-                     end, Cols), []).
+    {StartPos,_} = binary:match(Info, <<"(">>),
+    BodyFun = fun
+        G(B, I) when I >=0 ->
+            case binary:at(B, I) of
+                $) -> binary:part(B, StartPos+1, I-StartPos-1);
+                _  -> G(B, I-1)
+            end;
+        G(_, _) ->
+            <<>>
+    end,
+    Info1 = BodyFun(Info, byte_size(Info)-1),
+    Info2 = re:replace(Info1, <<"CHECK \\('(bin|lst|am)'='(bin|lst|am)'\\)\\)">>, <<"">>, [global, {return, binary}]),
+    Info3 = [re:replace(I, <<"[\r\n]">>, <<>>, [global, {return, binary}])
+              || I <- re:split(Info2, <<",[\r\n]">>, [trim, {return, binary}, notempty])],
+    
+    Match = [
+        {<<"\\s*CONSTRAINT\\s+(\\w+)\\s+PRIMARY KEY\\s+\\(\\s*([^\\)]+)\\)">>,
+            fun
+                ([_Name, ColList], Cols) ->
+                    L = [case string:tokens(I, " \t") of
+                           [C]   -> {list_to_atom(C), [primary_key]};
+                           [C|T] ->
+                               case build_primary_key_constraint(T) of
+                                  {primary_key, _}       -> {list_to_atom(C), [primary_key]};
+                                  {{primary_key,Opts},_} -> {list_to_atom(C), [{primary_key,Opts}]}
+                               end
+                         end || I <- string:tokens(ColList, ",")],
+                    lists:foldl(fun({Col, Opts}, Acc) ->
+                        case lists:keyfind(Col, 1, Acc) of
+                            false ->
+                                io:format("Processing constraint: ~w not found in ~p\n", [Col, Acc]),
+                                Acc;
+                            {Col, Tp, ColOpts} ->
+                                lists:keyreplace(Col, 1, Acc, {Col, Tp, Opts ++ ColOpts})
+                        end
+                    end, Cols, L)
+            end},
+        {<<"^\\s+(\\w+)\\s+(\\w+)\\s+\\((\\d+), *(\\d+)\\)(?:\\s+(NULL|NOT NULL))?(.*)">>,
+            fun
+                ([Col, Type, D1, D2, Nullable, []], Cols) ->
+                    [{list_to_atom(Col), sqlite3_lib:col_type_to_atom(Type),
+                        null(Nullable) ++ [{size, list_to_integer(D1)}, {precision, list_to_integer(D2)}]} | Cols];
+                ([Col, Type, D1, D2, Nullable, Constraint], Cols) ->
+                    [{list_to_atom(Col), sqlite3_lib:col_type_to_atom(Type),
+                        null(Nullable) ++ [{size, list_to_integer(D1)}, {precision, list_to_integer(D2)}
+                                           | constraint(Constraint)]} | Cols]
+            end},
+        {<<"^\\s+(\\w+)\\s+(\\w+)\\s+\\((\\d+)\\)(?:\\s+(NULL|NOT NULL))?(.*)">>,
+            fun
+                ([Col, Type, D1, Nullable, []], Cols) ->
+                    [{list_to_atom(Col), sqlite3_lib:col_type_to_atom(Type),
+                        null(Nullable) ++ [{size, list_to_integer(D1)}]} | Cols];
+                ([Col, Type, D1, Nullable, Constraint], Cols) ->
+                    [{list_to_atom(Col), sqlite3_lib:col_type_to_atom(Type),
+                        null(Nullable) ++ [{size, list_to_integer(D1)} | constraint(Constraint)]} | Cols]
+            end},
+        {<<"^\\s+(\\w+)\\s+(\\w+)(?:\\s+(NULL|NOT NULL))?(.*)">>,
+            fun
+                ([Col, Type, Nullable, []], Cols) ->
+                    [{list_to_atom(Col), sqlite3_lib:col_type_to_atom(Type), null(Nullable)} | Cols];
+                ([Col, Type, Nullable, Constraint], Cols) ->
+                    [{list_to_atom(Col), sqlite3_lib:col_type_to_atom(Type), null(Nullable) ++ constraint(Constraint)} | Cols]
+            end}
+    ],
+    lists:reverse(
+        lists:foldl(fun(Row, Cols) ->
+            case match(Row, Match, Cols) of
+                false ->
+                    Cols;
+                NewCols ->
+                    NewCols
+            end
+        end, [], Info3)).
 
-build_table_info([], Acc) ->
-    lists:reverse(Acc);
-build_table_info([[ColName, ColType] | Tl], Acc) ->
-    build_table_info(Tl, [{list_to_atom(ColName), sqlite3_lib:col_type_to_atom(ColType)}| Acc]);
-build_table_info([[ColName, ColType | Constraints] | Tl], Acc) ->
-    build_table_info(Tl, [{list_to_atom(ColName), sqlite3_lib:col_type_to_atom(ColType), build_constraints(Constraints)} | Acc]).
+match(_Row, [], _Cols) ->
+    false;
+match(Row, [{Re, Fun}|T], Cols) ->
+    case re:run(Row, Re, [{capture, all, list}]) of
+        {match, [_|Fields]} ->
+            Fun(Fields, Cols);
+        nomatch ->
+            match(Row, T, Cols)
+    end.
+
+% build_table_info([], Acc) ->
+%     lists:reverse(Acc);
+% build_table_info([[ColName, ColType] | Tl], Acc) ->
+%     build_table_info(Tl, [{list_to_atom(ColName), sqlite3_lib:col_type_to_atom(ColType)}| Acc]);
+% build_table_info([[ColName, ColType | Constraints] | Tl], Acc) ->
+%     build_table_info(Tl, [{list_to_atom(ColName), sqlite3_lib:col_type_to_atom(ColType), build_constraints(Constraints)} | Acc]).
+
+null("NOT NULL") -> [not_null];
+null("not null") -> [not_null];
+null(_)          -> [].
+
+constraint(Constraint) ->
+    build_constraints(string:tokens(Constraint, " ")).
 
 %% TODO conflict-clause parsing
 build_constraints([]) -> [];
-build_constraints(["PRIMARY", "KEY" | Tail]) ->
+build_constraints([Primary, Key | Tail]) when Primary=="PRIMARY", Key=="KEY"
+                                            ; Primary=="primary", Key=="key" ->
     {Constraint, Rest} = build_primary_key_constraint(Tail),
     [Constraint | build_constraints(Rest)];
-build_constraints(["UNIQUE" | Tail]) ->
+build_constraints([Unique | Tail]) when Unique=="UNIQUE"; Unique=="unique"->
     [unique | build_constraints(Tail)];
-build_constraints(["NOT", "NULL" | Tail]) ->
-    [not_null | build_constraints(Tail)];
-build_constraints(["NULL" | Tail]) ->
-    [null | build_constraints(Tail)];
-build_constraints(["DEFAULT", DefaultValue | Tail]) ->
-    [{default, sqlite3_lib:sql_to_value(DefaultValue)} | build_constraints(Tail)];
+%build_constraints(["NOT", "NULL" | Tail]) ->
+%    [not_null | build_constraints(Tail)];
+%build_constraints(["NULL" | Tail]) ->
+%    [null | build_constraints(Tail)];
+build_constraints([Default, DefaultValue | Tail]) when Default=="DEFAULT"; Default=="default" ->
+    case re:run(DefaultValue, "^\\((.*)\\)$", [{capture, all, list}]) of
+        {match, [_, Value]} ->
+            [{default, Value} | build_constraints(Tail)];
+        nomatch ->
+            [{default, sqlite3_lib:sql_to_value(DefaultValue)} | build_constraints(Tail)]
+    end;
 % build_constraints(["CHECK", _ | Tail]) ->
 %     build_constraints(Tail);
 % build_constraints(["REFERENCES", Check | Tail]) -> ...
 build_constraints(UnknownConstraints) ->
+    io:format("Constraints: ~p\n", [UnknownConstraints]),
     [{cant_parse_constraints, string:join(UnknownConstraints, " ")}].
 
 build_primary_key_constraint(Tokens) -> build_primary_key_constraint(Tokens, []).
@@ -1258,9 +1347,6 @@ cast_table_name(Bin, SQL) ->
         %% backwards compatible
         binary_to_atom(Bin, latin1)
     end.
-
-list_init([_]) -> [];
-list_init([H|T]) -> [H|list_init(T)].
 
 driver_name() ->
     Sfx =

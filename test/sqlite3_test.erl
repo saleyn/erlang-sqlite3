@@ -81,7 +81,7 @@ basic_functionality() ->
     TableInfo = [{id, integer, [{primary_key, [asc, autoincrement]}]},
                  {name, text, [not_null, unique]},
                  {age, integer, not_null},
-                 {wage, integer}],
+                 {wage, integer, []}],
     TableInfo1 = lists:keyreplace(age, 1, TableInfo, {age, integer, [not_null]}),
     drop_all_tables(ct),
     ?assertMatch(
@@ -142,8 +142,8 @@ table_info() ->
     sqlite3:sql_exec(ct,Sql),
     ?assertMatch(
         [{id, integer, [primary_key]},
-         {ts, text, [{cant_parse_constraints, _}]},
-         {key, text}],
+         {ts, text, [{default, "timestamp('now')"}]},
+         {key, text, []}],
         sqlite3:table_info(ct,table_info_test)).
 
 parametrized() ->

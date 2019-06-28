@@ -312,7 +312,7 @@ static ErlDrvData start(ErlDrvPort port, char* cmd) {
   drv->atom_unknown_cmd = driver_mk_atom("unknown_command");
 
   if (status != SQLITE_OK) {
-    LOG_ERROR("Unable to open file %s: \"%s\"\n\n", db_name, sqlite3_errmsg(db));
+    LOG_DEBUG("Unable to open file %s: \"%s\"\n\n", db_name, sqlite3_errmsg(db));
     output_db_error(drv);
   } else {
     LOG_DEBUG("Opened file %s\n", db_name);

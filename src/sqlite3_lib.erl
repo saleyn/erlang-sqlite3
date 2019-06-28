@@ -193,9 +193,9 @@ read_cols_sql(Columns) ->
 -spec create_table_sql(table_id(), table_info()) -> iolist().
 create_table_sql(Tbl, Columns) ->
     {Type, TName} = encode_table_id(Tbl),
-    ["CREATE TABLE ", TName, " (",
-     map_intersperse(fun column_sql_for_create_table/1, Columns, ", "),
-     ", CHECK ('", Type, "'='", Type, "'));"].
+    ["CREATE TABLE ", TName, " (\n",
+     [["  ", C] || C <- map_intersperse(fun column_sql_for_create_table/1, Columns, ",\n")],
+     ",\nCHECK ('", Type, "'='", Type, "'));"].
 
 %%--------------------------------------------------------------------
 %% @doc Generates a table create stmt in SQL.
@@ -204,10 +204,10 @@ create_table_sql(Tbl, Columns) ->
 -spec create_table_sql(table_id(), table_info(), table_constraints()) -> iolist().
 create_table_sql(Tbl, Columns, TblConstraints) ->
     {Type, TName} = encode_table_id(Tbl),
-    ["CREATE TABLE ", TName, " (",
-     map_intersperse(fun column_sql_for_create_table/1, Columns, ", "), ", ",
+    ["CREATE TABLE ", TName, " (\n",
+     [["  ", C] || C <- map_intersperse(fun column_sql_for_create_table/1, Columns, ",\n")], ",\n",
      table_constraint_sql(TblConstraints),
-     ", CHECK ('", Type, "'='", Type, "'));"].
+     ",\nCHECK ('", Type, "'='", Type, "'));"].
 
 %%--------------------------------------------------------------------
 %% @doc Generates a alter table stmt in SQL.
@@ -355,26 +355,27 @@ hex_str_to_bin([X, Y | Tail], Acc) ->
 column_sql_for_create_table({Name, Type}) ->
     [atom_to_list(Name), " ", col_type_to_string(Type)];
 column_sql_for_create_table({Name, Type, Constraints}) ->
-    [atom_to_list(Name), " ", col_type_to_string(Type), " ", constraint_sql(Constraints)].
+    [atom_to_list(Name), " ", col_type_to_string(Type), constraint_sql(Constraints)].
 
 -spec pk_constraint_sql(pk_constraints()) -> iolist().
 pk_constraint_sql(Constraint) ->
     case Constraint of
-        desc -> "DESC";
-        asc -> "ASC";
-        autoincrement -> "AUTOINCREMENT";
+        desc -> " DESC";
+        asc -> " ASC";
+        autoincrement -> " AUTOINCREMENT";
         _ when is_list(Constraint) -> map_intersperse(fun pk_constraint_sql/1, Constraint, " ")
     end.
 
 -spec constraint_sql(column_constraints()) -> iolist().
 constraint_sql(Constraint) ->
     case Constraint of
-        primary_key -> "PRIMARY KEY";
-        {primary_key, C} -> ["PRIMARY KEY ", pk_constraint_sql(C)];
-        unique -> "UNIQUE";
-        not_null -> "NOT NULL";
-        {default, DefaultValue} -> ["DEFAULT ", value_to_sql(DefaultValue)];
-        {references, Table, Column} when is_atom(Table), is_atom(Column)-> [ "REFERENCES ", atom_to_list(Table), "(", atom_to_list(Column), ")" ];
+        primary_key      -> " PRIMARY KEY";
+        {primary_key,[]} ->  " PRIMARY KEY";
+        {primary_key, C} -> [" PRIMARY KEY", pk_constraint_sql(C)];
+        unique   -> " UNIQUE";
+        not_null -> " NOT NULL";
+        {default, DefaultValue} -> [" DEFAULT ", value_to_sql(DefaultValue)];
+        {references, Table, Column} when is_atom(Table), is_atom(Column)-> [ " REFERENCES ", atom_to_list(Table), "(", atom_to_list(Column), ")" ];
         {raw, S} when is_list(S) -> S;
         _ when is_list(Constraint) -> map_intersperse(fun constraint_sql/1, Constraint, " ")
     end.
@@ -449,16 +450,16 @@ number_test() ->
 
 create_table_sql_test() ->
     ?assertFlat(
-        "CREATE TABLE user (id INTEGER PRIMARY KEY, name TEXT, CHECK ('am'='am'));",
+        "CREATE TABLE user (\n  id INTEGER PRIMARY KEY  ,\n  name TEXT,\nCHECK ('am'='am'));",
         create_table_sql(user, [{id, integer, [primary_key]}, {name, text}])),
     ?assertFlat(
-        "CREATE TABLE user (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, CHECK ('bin'='bin'));",
+        "CREATE TABLE user (\n  id INTEGER PRIMARY KEY AUTOINCREMENT  ,\n  name TEXT,\nCHECK ('bin'='bin'));",
         create_table_sql(<<"user">>, [{id, integer, [{primary_key, autoincrement}]}, {name, text}])),
     ?assertFlat(
-        "CREATE TABLE user (id INTEGER PRIMARY KEY DESC, name TEXT, CHECK ('lst'='lst'));",
+        "CREATE TABLE user (\n  id INTEGER PRIMARY KEY DESC  ,\n  name TEXT,\nCHECK ('lst'='lst'));",
         create_table_sql("user", [{id, integer, [{primary_key, desc}]}, {name, text}])),
     ?assertFlat(
-        "CREATE TABLE user (id INTEGER, name TEXT, PRIMARY KEY(id), CHECK ('am'='am'));",
+        "CREATE TABLE user (\n  id INTEGER  ,\n  name TEXT,\nPRIMARY KEY(id),\nCHECK ('am'='am'));",
         create_table_sql(user,
                          [{id, integer}, {name, text}],
                          [{primary_key, [id]}])).
