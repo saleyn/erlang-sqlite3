@@ -846,25 +846,32 @@ do_init(Options) ->
 
 -spec handle_call(any(), pid(), #state{}) -> {'reply', any(), #state{}} | {'stop', 'normal', 'ok', #state{}}.
 handle_call(close, _From, State) ->
-    Reply = ok,
-    {stop, normal, Reply, State};
+    {stop, normal, _Reply = ok, State};
 handle_call(list_tables, _From, State) ->
     SQL = "select name, sql from sqlite_master where type='table';",
-    Data = do_sql_exec(SQL, State),
-    TableList = proplists:get_value(rows, Data),
-    TableNames = [cast_table_name(Name, SQLx) || {Name,SQLx} <- TableList],
-    {reply, TableNames, State};
+    case do_sql_exec(SQL, State) of
+        Data when is_list(Data)->
+            TableList = proplists:get_value(rows, Data),
+            TableNames = [cast_table_name(Name, SQLx) || {Name,SQLx} <- TableList],
+            {reply, TableNames, State};
+        {error, _Code, Reason} ->
+            {reply, {error, Reason}, State}
+    end;
 handle_call({table_info, Tbl}, _From, State) when is_atom(Tbl) ->
     % make sure we only get table info.
     SQL = io_lib:format("select sql from sqlite_master where tbl_name = '~p' and type='table';", [Tbl]),
-    Data = do_sql_exec(SQL, State),
-    TableSql = proplists:get_value(rows, Data),
-    case TableSql of
-        [{Info}] ->
-            ColumnList = parse_table_info(binary_to_list(Info)),
-            {reply, ColumnList, State};
-        [] ->
-            {reply, table_does_not_exist, State}
+    case do_sql_exec(SQL, State) of
+        Data when is_list(Data)->
+            TableSql = proplists:get_value(rows, Data),
+            case TableSql of
+                [{Info}] ->
+                    ColumnList = parse_table_info(binary_to_list(Info)),
+                    {reply, ColumnList, State};
+                [] ->
+                    {reply, table_does_not_exist, State}
+            end;
+        {error, _Code, Reason} ->
+            {reply, {error, Reason}, State}
     end;
 handle_call({table_info, _NotAnAtom}, _From, State) ->
     {reply, {error, badarg}, State};
