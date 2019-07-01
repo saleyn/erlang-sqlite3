@@ -13,7 +13,7 @@ Sfx =
 Driver   = "priv/sqlite3_drv" ++ Sfx ++ if Arch=="win32" -> ".dll"; true -> ".so" end,
 PortSpec = {port_specs, [{Driver, ["c_src/*.c"]}]},
 PortEnv  = proplists:get_value(port_env, CONFIG),
-PortEnv1 = [{"CFLAGS", "-DDRIVER_SFX="++Sfx} | PortEnv],
+PortEnv1 = [{"CFLAGS", "-DDRIVER_SFX=\\\""++Sfx++"\\\""} | PortEnv],
 Cfg0     = lists:keyreplace(port_env,   1, CONFIG, {port_env, PortEnv1}),
 Cfg1     = lists:keyreplace(port_specs, 1, Cfg0,   PortSpec),
 [{artifacts, [Driver]} | Cfg1].
