@@ -393,6 +393,9 @@ static ErlDrvSSizeT control(
     case CMD_CHANGES:
       changes(drv, buf, (int) len);
       break;
+    case CMD_FILENAME:
+      filename(drv, buf, (int) len);
+      break;
     default:
       unknown(drv, buf, (int) len);
     }
@@ -410,6 +413,26 @@ static int changes(sqlite3_drv_t *drv, char *buf, int len) {
     spec[3] = changes;
     spec[4] = ERL_DRV_TUPLE;
     spec[5] = 2;
+
+    return
+    #ifdef PRE_R16B
+    driver_output_term(drv->port,
+    #else
+    erl_drv_output_term(spec[1],
+    #endif
+    spec, sizeof(spec) / sizeof(spec[0]));
+}
+
+static int filename(sqlite3_drv_t *drv, char *buf, int len) {
+    const char* file = drv->db_name;
+    if (!file)  file = "";
+    size_t bytes = strlen(file);
+
+    ErlDrvTermData spec[] = {
+        ERL_DRV_PORT,   driver_mk_port(drv->port),
+        ERL_DRV_STRING, (ErlDrvTermData)file, bytes,
+        ERL_DRV_TUPLE,  2
+    };
 
     return
     #ifdef PRE_R16B

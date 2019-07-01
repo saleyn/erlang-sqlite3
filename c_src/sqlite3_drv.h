@@ -52,6 +52,7 @@ extern FILE* __cdecl __iob_func(void);
 #define CMD_SQL_EXEC_SCRIPT 12
 #define CMD_ENABLE_LOAD_EXTENSION 13
 #define CMD_CHANGES 14
+#define CMD_FILENAME 15
 
 typedef struct ptr_list {
   void *head;
@@ -122,6 +123,7 @@ static void ready_async(ErlDrvData drv_data, ErlDrvThreadData thread_data);
 static int unknown(sqlite3_drv_t *bdb_drv, char *buf, int len);
 static int enable_load_extension(sqlite3_drv_t *drv, char *buf, int len);
 static int changes(sqlite3_drv_t *drv, char *buf, int len);
+static int filename(sqlite3_drv_t *drv, char *buf, int len);
 
 #if defined(_MSC_VER)
 #pragma warning(default: 4201)

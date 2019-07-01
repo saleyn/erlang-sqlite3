@@ -41,6 +41,7 @@
 -export([drop_table/1, drop_table/2, drop_table_timeout/3]).
 -export([vacuum/0, vacuum/1, vacuum_timeout/2]).
 -export([changes/1, changes/2]).
+-export([filename/1]).
 
 %% -export([create_function/3]).
 
@@ -142,7 +143,8 @@ open(DbName, Options) ->
 %%--------------------------------------------------------------------
 -spec close(db()) -> 'ok'.
 close(Db) ->
-    gen_server:call(Db, close).
+    catch gen_server:call(Db, close),
+    ok.
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -151,7 +153,8 @@ close(Db) ->
 %%--------------------------------------------------------------------
 -spec close_timeout(db(), timeout()) -> 'ok'.
 close_timeout(Db, Timeout) ->
-    gen_server:call(Db, close, Timeout).
+    catch gen_server:call(Db, close, Timeout),
+    ok.
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -176,6 +179,15 @@ changes(Db) ->
 
 changes(Db, Timeout) ->
     gen_server:call(Db, changes, Timeout).
+
+%%--------------------------------------------------------------------
+%% @doc
+%%   Get database filename.
+%% @end
+%%--------------------------------------------------------------------
+
+filename(Db) ->
+    gen_server:call(Db, filename).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -1015,6 +1027,9 @@ handle_call({enable_load_extension, _Value} = Payload, _From, State = #state{por
 handle_call(changes = Payload, _From, State = #state{port = Port, refs = _Refs}) ->
     Reply = exec(Port, Payload),
     {reply, Reply, State};
+handle_call(filename = Payload, _From, State = #state{port = Port, refs = _Refs}) ->
+    Reply = exec(Port, Payload),
+    {reply, Reply, State};
 handle_call({describe_table, Table}, _From, State) ->
     SQL = sqlite3_lib:describe_table(Table),
     do_handle_call_sql_exec(SQL, State);
@@ -1120,6 +1135,7 @@ get_priv_dir() ->
 -define(SQL_EXEC_SCRIPT, 12).
 -define(ENABLE_LOAD_EXTENSION, 13).
 -define(CHANGES, 14).
+-define(DB_FILENAME, 15).
 
 create_port_cmd(DbFile) ->
     driver_name() ++ " " ++ DbFile.
@@ -1174,6 +1190,9 @@ exec(Port, {enable_load_extension, Value}) ->
     wait_result(Port);
 exec(Port, changes) ->
     port_control(Port, ?CHANGES, <<"">>),
+    wait_result(Port);
+exec(Port, filename) ->
+    port_control(Port, ?DB_FILENAME, <<"">>),
     wait_result(Port);
 exec(Port, {Cmd, Index}) when is_integer(Index) ->
     CmdCode = case Cmd of
