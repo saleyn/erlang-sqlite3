@@ -24,7 +24,6 @@ TEST*.xml
 *.lib
 *.obj
 *.o
-*.so
 # crash dump
 erl_crash.dump
 .rebar3
