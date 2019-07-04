@@ -563,7 +563,9 @@ write_many_timeout(Db, Tbl, Data, Timeout) ->
 -spec update(table_id(), {column_id(), sql_value()}, [{column_id(), sql_value()}]) ->
           sql_non_query_result().
 update(Tbl, {Key, Value}, Data) ->
-    update(?MODULE, Tbl, {Key, Value}, Data).
+    update(?MODULE, Tbl, {Key, Value}, Data);
+update(Tbl, [{_K, _V}|_]=KV, Data) ->
+    update(?MODULE, Tbl, KV, Data).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -573,8 +575,10 @@ update(Tbl, {Key, Value}, Data) ->
 %%--------------------------------------------------------------------
 -spec update(db(), table_id(), {column_id(), sql_value()}, [{column_id(), sql_value()}]) ->
           sql_non_query_result().
-update(Db, Tbl, {Key, Value}, Data) ->
-  gen_server:call(Db, {update, Tbl, Key, Value, Data}).
+update(Db, Tbl, {_Key, _Value}=KV, Data) ->
+    gen_server:call(Db, {update, Tbl, KV, Data});
+update(Db, Tbl, [{_K,_V}|_]=KV, Data) ->
+    gen_server:call(Db, {update, Tbl, KV, Data}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -585,7 +589,7 @@ update(Db, Tbl, {Key, Value}, Data) ->
 -spec update_timeout(db(), table_id(), {column_id(), sql_value()}, [{column_id(), sql_value()}], timeout()) ->
           sql_non_query_result().
 update_timeout(Db, Tbl, {Key, Value}, Data, Timeout) ->
-  gen_server:call(Db, {update, Tbl, Key, Value, Data}, Timeout).
+    gen_server:call(Db, {update, Tbl, Key, Value, Data}, Timeout).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -919,8 +923,8 @@ handle_call({create_table, Tbl, Columns, Constraints}, _From, State) ->
         _:Exception ->
             {reply, {error, Exception}, State}
     end;
-handle_call({update, Tbl, Key, Value, Data}, _From, State) ->
-    try sqlite3_lib:update_sql(Tbl, Key, Value, Data) of
+handle_call({update, Tbl, KeyValue, Data}, _From, State) ->
+    try sqlite3_lib:update_sql(Tbl, KeyValue, Data) of
         SQL -> do_handle_call_sql_exec(SQL, State)
     catch
         _:Exception ->

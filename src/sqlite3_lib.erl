@@ -17,7 +17,8 @@
 -export([write_value_sql/1, write_col_sql/1]).
 -export([create_table_sql/2, create_table_sql/3, drop_table_sql/1]).
 -export([add_columns_sql/2, describe_table/1]).
--export([write_sql/2, update_sql/4, update_set_sql/1, delete_sql/3]).
+-export([write_sql/2, update_sql/3, update_sql/4]).
+-export([update_set_sql/1, delete_sql/3]).
 -export([read_sql/1, read_sql/2, read_sql/3, read_sql/4, read_cols_sql/1]).
 
 %%====================================================================
@@ -231,6 +232,16 @@ update_sql(Tbl, Key, Value, Data) ->
     {_, TName} = encode_table_id(Tbl),
     ["UPDATE ", TName, " SET ", update_set_sql(Data),
      " WHERE ", to_iolist(Key), " = ", value_to_sql(Value), ";"].
+
+-spec update_sql(table_id(), {column_id(), sql_value()} | [{column_id(), sql_value()}],
+                 [{column_id(), sql_value()}]) -> iolist().
+update_sql(Tbl, {Key,Value}, Data) ->
+    update_sql(Tbl, Key, Value, Data);
+update_sql(Tbl, KeyValues, Data) when is_list(KeyValues) ->
+    {_, TName} = encode_table_id(Tbl),
+    Add = string:join(" and ", [[to_iolist(K), " = ", value_to_sql(V)] || {K,V} <- KeyValues]),
+    ["UPDATE ", TName, " SET ", update_set_sql(Data),
+     " WHERE ", Add, ";"].
 
 %%--------------------------------------------------------------------
 %% @doc Taking Data as list of column names and values pairs it creates the
