@@ -499,8 +499,11 @@ table_info_timeout(Db, Tbl, Timeout) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec write(table_id(), [{column_id(), sql_value()}]) -> sql_non_query_result().
-write(Tbl, Data) ->
-    write(?MODULE, Tbl, Data).
+write(Tbl, KVs) when is_tuple(KVs) andalso
+                      (tuple_size(KVs)==2 orelse tuple_size(KVs)==3) ->
+    write(Tbl, [KVs]);
+write(Tbl, KVs) ->
+    write(?MODULE, Tbl, KVs).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -563,9 +566,10 @@ write_many_timeout(Db, Tbl, Data, Timeout) ->
 -spec update(table_id(), {column_id(), sql_value()}, [{column_id(), sql_value()}]) ->
           sql_non_query_result().
 update(Tbl, {Key, Value}, Data) ->
-    update(?MODULE, Tbl, {Key, Value}, Data);
-update(Tbl, [{_K, _V}|_]=KV, Data) ->
-    update(?MODULE, Tbl, KV, Data).
+    update(Tbl, [{Key, Value}], Data);
+update(Tbl, [KV|_]=KVs, Data) when is_tuple(KV) andalso
+                                   (tuple_size(KV)==2 orelse tuple_size(KV)==3) ->
+    update(?MODULE, Tbl, KVs, Data).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -577,9 +581,10 @@ update(Tbl, [{_K, _V}|_]=KV, Data) ->
                               [{column_id(), sql_value()}],
              [{column_id(), sql_value()}]) -> sql_non_query_result().
 update(Db, Tbl, {_Key, _Value}=KV, Data) ->
-    gen_server:call(Db, {update, Tbl, KV, Data});
-update(Db, Tbl, [{_K,_V}|_]=KV, Data) ->
-    gen_server:call(Db, {update, Tbl, KV, Data}).
+    update(Db, Tbl, [KV], Data);
+update(Db, Tbl, [KV|_]=KVs, Data) when is_tuple(KV) andalso
+                                       (tuple_size(KV)==2 orelse tuple_size(KV)==3) ->
+    gen_server:call(Db, {update, Tbl, KVs, Data}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -591,9 +596,11 @@ update(Db, Tbl, [{_K,_V}|_]=KV, Data) ->
                                       [{column_id(), sql_value()}],
                      [{column_id(), sql_value()}], timeout()) -> sql_non_query_result().
 update_timeout(Db, Tbl, {Key, Value}, Data, Timeout) ->
-    gen_server:call(Db, {update, Tbl, Key, Value, Data}, Timeout);
-update_timeout(Db, Tbl, [{_K,_V}|_]=KV, Data, Timeout) ->
-    gen_server:call(Db, {update, Tbl, KV, Data}, Timeout).
+    update_timeout(Db, Tbl, [{Key, Value}], Data, Timeout);
+update_timeout(Db, Tbl, [KV|_]=KVs, Data, Timeout)
+    when is_tuple(KV) andalso
+        (tuple_size(KV)==2 orelse tuple_size(KV)==3) ->
+    gen_server:call(Db, {update, Tbl, KVs, Data}, Timeout).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -641,11 +648,15 @@ read_all_timeout(Db, Tbl, Columns, Timeout) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec read(table_id(), {column_id(), sql_value()}|
-                      [{column_id(), sql_value()}]) -> sql_result().
-read(Tbl, {_,_} = Key) ->
-    read(?MODULE, Tbl, Key, []);
-read(Tbl, [{_,_}|_] = Key) ->
-    read(?MODULE, Tbl, Key, []).
+                      [{column_id(), sql_value()}]|
+                      [{column_id(), Op::'>'|'<'|'>='|'<='|'!=', sql_value()}]) ->
+            sql_result().
+read(Tbl, KV) when is_tuple(KV) andalso
+                   (tuple_size(KV)==2 orelse tuple_size(KV)==3)->
+    read(?MODULE, Tbl, KV, all);
+read(Tbl, [KV|_] = Key) when is_tuple(KV) andalso
+                             (tuple_size(KV)==2 orelse tuple_size(KV)==3) ->
+    read(?MODULE, Tbl, Key, all).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -655,11 +666,15 @@ read(Tbl, [{_,_}|_] = Key) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec read(db(), table_id(), {column_id(), sql_value()}|
-                            [{column_id(), sql_value()}]) -> sql_result().
-read(Db, Tbl, {_Key,_Value}=KV) ->
+                      [{column_id(), sql_value()}]|
+                      [{column_id(), Op::'>'|'<'|'>='|'<='|'!=', sql_value()}]) ->
+           sql_result().
+read(Db, Tbl, KV) when is_tuple(KV) andalso
+                      (tuple_size(KV)==2 orelse tuple_size(KV)==3)->
     read(Db, Tbl, [KV]);
-read(Db, Tbl, [{_C,_V}|_]=CV) ->
-    gen_server:call(Db, {read, Tbl, CV, []}).
+read(Db, Tbl, [KV|_]=CV) when is_tuple(KV) andalso
+                              (tuple_size(KV)==2 orelse tuple_size(KV)==3) ->
+    gen_server:call(Db, {read, Tbl, CV, all}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -669,11 +684,15 @@ read(Db, Tbl, [{_C,_V}|_]=CV) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec read(db(), table_id(), {column_id(), sql_value()}|
-                            [{column_id(), sql_value()}], all|[column_id()]) ->
+                            [{column_id(), sql_value()}]|
+                            [{column_id(), Op::'>'|'<'|'>='|'<='|'!=', sql_value()}],
+                            all|[column_id()]) ->
         sql_result().
-read(Db, Tbl, {_Key, _Value} = KV, Columns) ->
+read(Db, Tbl, KV, Columns) when is_tuple(KV) andalso
+                                (tuple_size(KV)==2 orelse tuple_size(KV)==3)->
     read(Db, Tbl, [KV], Columns);
-read(Db, Tbl, [{_C,_V}|_]=CV, Columns) ->
+read(Db, Tbl, [KV|_]=CV, Columns) when is_tuple(KV) andalso
+                                       (tuple_size(KV)==2 orelse tuple_size(KV)==3) ->
     gen_server:call(Db, {read, Tbl, CV, Columns}).
 
 %%--------------------------------------------------------------------
@@ -684,11 +703,14 @@ read(Db, Tbl, [{_C,_V}|_]=CV, Columns) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec read_timeout(db(), table_id(), {column_id(), sql_value()}|
-                                    [{column_id(), sql_value()}], timeout()) ->
+                                    [{column_id(), sql_value()}]|
+                                    [{column_id(), Op::'>'|'<'|'>='|'<='|'!=', sql_value()}],
+                                    timeout()) ->
         sql_result().
 read_timeout(Db, Tbl, {_Column, _Value}=KV, Timeout) ->
     gen_server:call(Db, {read, Tbl, [KV]}, Timeout);
-read_timeout(Db, Tbl, [{_C,_V}|_]=CV, Timeout) ->
+read_timeout(Db, Tbl, [KV|_]=CV, Timeout) when is_tuple(KV) andalso
+                                               (tuple_size(KV)==2 orelse tuple_size(KV)==3) ->
     gen_server:call(Db, {read, Tbl, CV}, Timeout).
 
 %%--------------------------------------------------------------------
@@ -699,12 +721,14 @@ read_timeout(Db, Tbl, [{_C,_V}|_]=CV, Timeout) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec read_timeout(db(), table_id(), {column_id(), sql_value()}|
-                                    [{column_id(), sql_value()}],
-                   all|[column_id()], timeout()) ->
+                                    [{column_id(), sql_value()}]|
+                                    [{column_id(), Op::'>'|'<'|'>='|'<='|'!=', sql_value()}],
+                                    all|[column_id()], timeout()) ->
         sql_result().
 read_timeout(Db, Tbl, {_Col, _Value}=CV, Columns, Timeout) ->
     gen_server:call(Db, {read, Tbl, [CV], Columns}, Timeout);
-read_timeout(Db, Tbl, [{_C,_V}|_]=CV, Columns, Timeout) ->
+read_timeout(Db, Tbl, [KV|_]=CV, Columns, Timeout) when is_tuple(KV)
+                                                      , (tuple_size(KV)==2 orelse tuple_size(KV)==3) ->
     gen_server:call(Db, {read, Tbl, CV, Columns}, Timeout).
 
 %%--------------------------------------------------------------------

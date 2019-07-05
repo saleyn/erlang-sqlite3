@@ -173,7 +173,7 @@ negative() ->
     drop_table_if_exists(ct, negative),
     sqlite3:create_table(ct, negative, [{id, int}]),
     ?assertMatch({error, _},
-                 sqlite3:write(ct, negative, [{id, bad_sql_value}])).
+                 sqlite3:write(ct, negative, [{id, {bad_sql_value}}])).
 
 blob() ->
     drop_table_if_exists(ct, blobs),

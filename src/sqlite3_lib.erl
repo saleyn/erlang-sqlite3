@@ -97,9 +97,13 @@ value_to_sql_unsafe(X) ->
 %%--------------------------------------------------------------------
 -spec value_to_sql(sql_value()) -> iolist().
 value_to_sql(X) ->
+    value_to_sql(X, false).
+
+value_to_sql(X, AllowParams) ->
     case X of
         _ when is_integer(X)   -> integer_to_list(X);
         _ when is_float(X)     -> float_to_list(X);
+        '?' when AllowParams   -> "?";
         _ when is_atom(X)      -> [$', [if C == $\' -> "''"; true -> C end
                                         || C <- atom_to_list(X)], $'];
         true -> "1";
@@ -141,7 +145,7 @@ sql_to_value(String) ->
 %%--------------------------------------------------------------------
 -spec write_value_sql(sql_value()) -> iolist().
 write_value_sql(Values) ->
-    map_intersperse(fun value_to_sql/1, Values, ", ").
+    map_intersperse(fun(V) -> value_to_sql(V, true) end, Values, ", ").
 
     
 %%--------------------------------------------------------------------
@@ -266,7 +270,9 @@ read_sql(Tbl) ->
 read_sql(Tbl, all) ->
     read_sql(Tbl, []);
 read_sql(Tbl, [C|_] = Columns) when is_atom(C); is_list(C); is_binary(C) ->
-    ["SELECT ", read_cols_sql(Columns), " FROM ", to_iolist(Tbl), ";"].
+    ["SELECT ", read_cols_sql(Columns), " FROM ", to_iolist(Tbl), ";"];
+read_sql(Tbl, KeyValues) ->
+    read_sql(Tbl, KeyValues, all).
 
 %%--------------------------------------------------------------------
 %% @doc Using Key as the column name searches for the record with
@@ -274,7 +280,8 @@ read_sql(Tbl, [C|_] = Columns) when is_atom(C); is_list(C); is_binary(C) ->
 %% @end
 %%--------------------------------------------------------------------
 %-spec read_sql(table_id(), [{column_id(), sql_value()}], all|[Column_id()]) -> iolist().
-read_sql(Tbl, [{_,_}|_]=KVs, Columns) ->
+read_sql(Tbl, [KV|_]=KVs, Columns) when is_tuple(KV) andalso
+                                        (tuple_size(KV)==2 orelse tuple_size(KV)==3) ->
     Cols = if Columns==[]; Columns == all -> "*"; true -> read_cols_sql(Columns) end,
     ["SELECT ", Cols, " FROM ", to_iolist(Tbl), " WHERE ",
      colval_assignments_sql(KVs), ";"].     
@@ -391,9 +398,9 @@ table_constraint_sql(TableConstraint) ->
             map_intersperse(fun table_constraint_sql/1, TableConstraint, ", ")
     end.
 
-indexed_column_sql({ColumnName, asc}) -> [atom_to_list(ColumnName), " ASC"];
+indexed_column_sql({ColumnName, asc})  -> [atom_to_list(ColumnName), " ASC"];
 indexed_column_sql({ColumnName, desc}) -> [atom_to_list(ColumnName), " DESC"];
-indexed_column_sql(ColumnName) -> atom_to_list(ColumnName).
+indexed_column_sql(ColumnName)         -> atom_to_list(ColumnName).
 
 
 encode_table_id(A) when is_atom(A) ->
@@ -410,9 +417,19 @@ to_iolist(L) when is_list(L) ->
 to_iolist(B) when is_binary(B) ->
     B.
 
-colval_assignments_sql([{_,_}|_]=L) ->
-    string:join([[to_iolist(K), " = ", value_to_sql(V)] || {K,V} <- L],
-                " and ").
+colval_assignments_sql(L) ->
+    Add = lists:map(fun({K,V}) ->
+                      [to_iolist(K), " = ", value_to_sql(V)];
+                    ({K,between,{I,J}}) ->
+                      [to_iolist(K), " BETWEEN ",
+                       value_to_sql(I), " AND ", value_to_sql(J)];
+                    ({K,Cond,V}) ->
+                      [to_iolist(K), cond_to_list(Cond), value_to_sql(V)]
+                    end, L),
+    string:join(Add, " and ").
+
+cond_to_list(C) when C=='>'; C=='<'; C=='>='; C=='<='; C=='!='; C=='=' ->
+    [$\s, atom_to_list(C), $\s].
 
 %%--------------------------------------------------------------------
 %% @type sql_value() = number() | 'null' | iodata().
@@ -482,6 +499,12 @@ read_sql_test() ->
     ?assertFlat(
         "SELECT * FROM user WHERE id = 1;",
         read_sql(user, [{id, 1}])),
+    ?assertFlat(
+        "SELECT * FROM user WHERE id > 1;",
+        read_sql(user, [{id, '>', 1}])),
+    ?assertFlat(
+        "SELECT * FROM user WHERE id BETWEEN 1 AND 10;",
+        read_sql(user, [{id, between, {1, 10}}])),
     ?assertFlat(
         "SELECT id, name FROM user WHERE id = 1;",
         read_sql(user, [{<<"id">>, 1}], [id, "name"])).
