@@ -573,8 +573,9 @@ update(Tbl, [{_K, _V}|_]=KV, Data) ->
 %%    matches the value in Key with Data.
 %% @end
 %%--------------------------------------------------------------------
--spec update(db(), table_id(), {column_id(), sql_value()}, [{column_id(), sql_value()}]) ->
-          sql_non_query_result().
+-spec update(db(), table_id(), {column_id(), sql_value()}|
+                              [{column_id(), sql_value()}],
+             [{column_id(), sql_value()}]) -> sql_non_query_result().
 update(Db, Tbl, {_Key, _Value}=KV, Data) ->
     gen_server:call(Db, {update, Tbl, KV, Data});
 update(Db, Tbl, [{_K,_V}|_]=KV, Data) ->
@@ -586,10 +587,13 @@ update(Db, Tbl, [{_K,_V}|_]=KV, Data) ->
 %%    matches the value in Key with Data.
 %% @end
 %%--------------------------------------------------------------------
--spec update_timeout(db(), table_id(), {column_id(), sql_value()}, [{column_id(), sql_value()}], timeout()) ->
-          sql_non_query_result().
+-spec update_timeout(db(), table_id(), {column_id(), sql_value()}|
+                                      [{column_id(), sql_value()}],
+                     [{column_id(), sql_value()}], timeout()) -> sql_non_query_result().
 update_timeout(Db, Tbl, {Key, Value}, Data, Timeout) ->
-    gen_server:call(Db, {update, Tbl, Key, Value, Data}, Timeout).
+    gen_server:call(Db, {update, Tbl, Key, Value, Data}, Timeout);
+update_timeout(Db, Tbl, [{_K,_V}|_]=KV, Data, Timeout) ->
+    gen_server:call(Db, {update, Tbl, KV, Data}, Timeout).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -615,7 +619,7 @@ read_all_timeout(Db, Tbl, Timeout) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec read_all(db(), table_id(), [column_id()]) -> sql_result().
-read_all(Db, Tbl, Columns) ->
+read_all(Db, Tbl, [C|_] = Columns) when is_atom(C); is_list(C); is_binary(C) ->
     gen_server:call(Db, {read, Tbl, Columns}).
 
 %%--------------------------------------------------------------------
@@ -634,9 +638,12 @@ read_all_timeout(Db, Tbl, Columns, Timeout) ->
 %%   from table_info/2.
 %% @end
 %%--------------------------------------------------------------------
--spec read(table_id(), {column_id(), sql_value()}) -> sql_result().
-read(Tbl, Key) ->
-    read(?MODULE, Tbl, Key).
+-spec read(table_id(), {column_id(), sql_value()}|
+                      [{column_id(), sql_value()}]) -> sql_result().
+read(Tbl, {_,_} = Key) ->
+    read(?MODULE, Tbl, Key, []);
+read(Tbl, [{_,_}|_] = Key) ->
+    read(?MODULE, Tbl, Key, []).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -645,9 +652,12 @@ read(Tbl, Key) ->
 %%   as determined from table_info/3.
 %% @end
 %%--------------------------------------------------------------------
--spec read(db(), table_id(), {column_id(), sql_value()}) -> sql_result().
-read(Db, Tbl, {Column, Value}) ->
-    gen_server:call(Db, {read, Tbl, Column, Value}).
+-spec read(db(), table_id(), {column_id(), sql_value()}|
+                            [{column_id(), sql_value()}]) -> sql_result().
+read(Db, Tbl, {_Key,_Value}=KV) ->
+    read(Db, Tbl, [KV]);
+read(Db, Tbl, [{_C,_V}|_]=CV) ->
+    gen_server:call(Db, {read, Tbl, CV, []}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -656,9 +666,13 @@ read(Db, Tbl, {Column, Value}) ->
 %%    determined from table_info/3.
 %% @end
 %%--------------------------------------------------------------------
--spec read(db(), table_id(), {column_id(), sql_value()}, [column_id()]) -> sql_result().
-read(Db, Tbl, {Key, Value}, Columns) ->
-    gen_server:call(Db, {read, Tbl, Key, Value, Columns}).
+-spec read(db(), table_id(), {column_id(), sql_value()}|
+                            [{column_id(), sql_value()}], [column_id()]) ->
+        sql_result().
+read(Db, Tbl, {_Key, _Value} = KV, Columns) ->
+    read(Db, Tbl, [KV], Columns);
+read(Db, Tbl, [{_C,_V}|_]=CV, Columns) ->
+    gen_server:call(Db, {read, Tbl, CV, Columns}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -667,9 +681,13 @@ read(Db, Tbl, {Key, Value}, Columns) ->
 %%   as determined from table_info/3.
 %% @end
 %%--------------------------------------------------------------------
--spec read_timeout(db(), table_id(), {column_id(), sql_value()}, timeout()) -> sql_result().
-read_timeout(Db, Tbl, {Column, Value}, Timeout) ->
-    gen_server:call(Db, {read, Tbl, Column, Value}, Timeout).
+-spec read_timeout(db(), table_id(), {column_id(), sql_value()}|
+                                    [{column_id(), sql_value()}], timeout()) ->
+        sql_result().
+read_timeout(Db, Tbl, {_Column, _Value}=KV, Timeout) ->
+    gen_server:call(Db, {read, Tbl, [KV]}, Timeout);
+read_timeout(Db, Tbl, [{_C,_V}|_]=CV, Timeout) ->
+    gen_server:call(Db, {read, Tbl, CV}, Timeout).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -678,9 +696,13 @@ read_timeout(Db, Tbl, {Column, Value}, Timeout) ->
 %%    determined from table_info/3.
 %% @end
 %%--------------------------------------------------------------------
--spec read_timeout(db(), table_id(), {column_id(), sql_value()}, [column_id()], timeout()) -> sql_result().
-read_timeout(Db, Tbl, {Key, Value}, Columns, Timeout) ->
-    gen_server:call(Db, {read, Tbl, Key, Value, Columns}, Timeout).
+-spec read_timeout(db(), table_id(), {column_id(), sql_value()}|
+                                    [{column_id(), sql_value()}], [column_id()], timeout()) ->
+        sql_result().
+read_timeout(Db, Tbl, {_Col, _Value}=CV, Columns, Timeout) ->
+    gen_server:call(Db, {read, Tbl, [CV], Columns}, Timeout);
+read_timeout(Db, Tbl, [{_C,_V}|_]=CV, Columns, Timeout) ->
+    gen_server:call(Db, {read, Tbl, CV, Columns}, Timeout).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -689,7 +711,8 @@ read_timeout(Db, Tbl, {Key, Value}, Columns, Timeout) ->
 %%   Value must have the same type as determined from table_info/3.
 %% @end
 %%--------------------------------------------------------------------
--spec delete(table_id(), {column_id(), sql_value()}) -> sql_non_query_result().
+-spec delete(table_id(), {column_id(), sql_value()}|
+                        [{column_id(), sql_value()}]) -> sql_non_query_result().
 delete(Tbl, Key) ->
     delete(?MODULE, Tbl, Key).
 
@@ -700,7 +723,9 @@ delete(Tbl, Key) ->
 %%   Value must have the same type as determined from table_info/3.
 %% @end
 %%--------------------------------------------------------------------
--spec delete_timeout(db(), table_id(), {column_id(), sql_value()}, timeout()) -> sql_non_query_result().
+-spec delete_timeout(db(), table_id(), {column_id(), sql_value()}|
+                                      [{column_id(), sql_value()}],
+                     timeout()) -> sql_non_query_result().
 delete_timeout(Db, Tbl, Key, Timeout) ->
     gen_server:call(Db, {delete, Tbl, Key}, Timeout).
 
@@ -711,8 +736,11 @@ delete_timeout(Db, Tbl, Key, Timeout) ->
 %%   Value must have the same type as determined from table_info/3.
 %% @end
 %%--------------------------------------------------------------------
--spec delete(db(), table_id(), {column_id(), sql_value()}) -> sql_non_query_result().
-delete(Db, Tbl, Key) ->
+-spec delete(db(), table_id(), {column_id(), sql_value()}|
+                              [{column_id(), sql_value()}]) -> sql_non_query_result().
+delete(Db, Tbl, {_Key, _Value}=KV) ->
+    delete(Db, Tbl, [KV]);
+delete(Db, Tbl, [{_,_}|_] = Key) ->
     gen_server:call(Db, {delete, Tbl, Key}).
 
 %%--------------------------------------------------------------------
@@ -923,8 +951,8 @@ handle_call({create_table, Tbl, Columns, Constraints}, _From, State) ->
         _:Exception ->
             {reply, {error, Exception}, State}
     end;
-handle_call({update, Tbl, KeyValue, Data}, _From, State) ->
-    try sqlite3_lib:update_sql(Tbl, KeyValue, Data) of
+handle_call({update, Tbl, KVs, Data}, _From, State) ->
+    try sqlite3_lib:update_sql(Tbl, KVs, Data) of
         SQL -> do_handle_call_sql_exec(SQL, State)
     catch
         _:Exception ->
@@ -959,24 +987,16 @@ handle_call({read, Tbl, Columns}, _From, State) ->
         _:Exception ->
             {reply, {error, Exception}, State}
     end;
-handle_call({read, Tbl, Key, Value}, _From, State) ->
-    % select * from  Tbl where Key = Value;
-    try sqlite3_lib:read_sql(Tbl, Key, Value) of
+handle_call({read, Tbl, KVs, Columns}, _From, State) ->
+    try sqlite3_lib:read_sql(Tbl, KVs, Columns) of
         SQL -> do_handle_call_sql_exec(SQL, State)
     catch
         _:Exception ->
             {reply, {error, Exception}, State}
     end;
-handle_call({read, Tbl, Key, Value, Columns}, _From, State) ->
-    try sqlite3_lib:read_sql(Tbl, Key, Value, Columns) of
-        SQL -> do_handle_call_sql_exec(SQL, State)
-    catch
-        _:Exception ->
-            {reply, {error, Exception}, State}
-    end;
-handle_call({delete, Tbl, {Key, Value}}, _From, State) ->
+handle_call({delete, Tbl, KVs}, _From, State) ->
     % delete from Tbl where Key = Value;
-    try sqlite3_lib:delete_sql(Tbl, Key, Value) of
+    try sqlite3_lib:delete_sql(Tbl, KVs) of
         SQL -> do_handle_call_sql_exec(SQL, State)
     catch
         _:Exception ->

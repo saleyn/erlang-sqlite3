@@ -17,9 +17,9 @@
 -export([write_value_sql/1, write_col_sql/1]).
 -export([create_table_sql/2, create_table_sql/3, drop_table_sql/1]).
 -export([add_columns_sql/2, describe_table/1]).
--export([write_sql/2, update_sql/3, update_sql/4]).
--export([update_set_sql/1, delete_sql/3]).
--export([read_sql/1, read_sql/2, read_sql/3, read_sql/4, read_cols_sql/1]).
+-export([write_sql/2, update_sql/3]).
+-export([update_set_sql/1, delete_sql/2]).
+-export([read_sql/1, read_sql/2, read_sql/3, read_cols_sql/1]).
 
 %%====================================================================
 %% API
@@ -80,6 +80,8 @@ value_to_sql_unsafe(X) ->
     if
         is_binary(X) orelse is_list(X) ->
             [$', binary_or_unicode_to_binary(X), $'];
+        is_atom(X) ->
+            [$', atom_to_list(X), $'];
         true ->
             value_to_sql(X)
     end.
@@ -98,6 +100,8 @@ value_to_sql(X) ->
     case X of
         _ when is_integer(X)   -> integer_to_list(X);
         _ when is_float(X)     -> float_to_list(X);
+        _ when is_atom(X)      -> [$', [if C == $\' -> "''"; true -> C end
+                                        || C <- atom_to_list(X)], $'];
         true -> "1";
         false -> "0";
         undefined  -> "NULL";
@@ -227,21 +231,12 @@ add_columns_sql(Tbl, Columns) ->
 %%    record with matching Value.
 %% @end
 %%--------------------------------------------------------------------
--spec update_sql(table_id(), column_id(), sql_value(), [{column_id(), sql_value()}]) -> iolist().
-update_sql(Tbl, Key, Value, Data) ->
-    {_, TName} = encode_table_id(Tbl),
-    ["UPDATE ", TName, " SET ", update_set_sql(Data),
-     " WHERE ", to_iolist(Key), " = ", value_to_sql(Value), ";"].
-
--spec update_sql(table_id(), {column_id(), sql_value()} | [{column_id(), sql_value()}],
+-spec update_sql(table_id(), [{column_id(), sql_value()}],
                  [{column_id(), sql_value()}]) -> iolist().
-update_sql(Tbl, {Key,Value}, Data) ->
-    update_sql(Tbl, Key, Value, Data);
-update_sql(Tbl, KeyValues, Data) when is_list(KeyValues) ->
+update_sql(Tbl, [{_,_}|_] = KeyValues, Data) ->
     {_, TName} = encode_table_id(Tbl),
-    Add = string:join(" and ", [[to_iolist(K), " = ", value_to_sql(V)] || {K,V} <- KeyValues]),
     ["UPDATE ", TName, " SET ", update_set_sql(Data),
-     " WHERE ", Add, ";"].
+     " WHERE ", colval_assignments_sql(KeyValues), ";"].
 
 %%--------------------------------------------------------------------
 %% @doc Taking Data as list of column names and values pairs it creates the
@@ -268,41 +263,29 @@ read_sql(Tbl) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec read_sql(table_id(), [column_id()]) -> iolist().
-read_sql(Tbl, Columns) ->
-    ["SELECT ", read_cols_sql(Columns), " FROM ",
-     to_iolist(Tbl), ";"].
+read_sql(Tbl, [C|_] = Columns) when is_atom(C); is_list(C); is_binary(C) ->
+    ["SELECT ", read_cols_sql(Columns), " FROM ", to_iolist(Tbl), ";"].
 
 %%--------------------------------------------------------------------
 %% @doc Using Key as the column name searches for the record with
 %%      matching Value.
 %% @end
 %%--------------------------------------------------------------------
--spec read_sql(table_id(), column_id(), sql_value()) -> iolist().
-read_sql(Tbl, Key, Value) ->
-    ["SELECT * FROM ", to_iolist(Tbl), " WHERE ", to_iolist(Key),
-     " = ", value_to_sql(Value), ";"].
-
-%%--------------------------------------------------------------------
-%% @doc
-%%    Using Key as the column name searches for the record with
-%%    matching Value and returns only specified Columns.
-%% @end
-%%--------------------------------------------------------------------
--spec read_sql(table_id(), column_id(), sql_value(), [column_id()]) -> iolist().
-read_sql(Tbl, Key, Value, Columns) ->
-    ["SELECT ", read_cols_sql(Columns), " FROM ",
-     to_iolist(Tbl), " WHERE ", to_iolist(Key), " = ",
-     value_to_sql(Value), ";"].
+%-spec read_sql(table_id(), [{column_id(), sql_value()}], [Column_id()]) -> iolist().
+read_sql(Tbl, [{_,_}|_]=KVs, Columns) ->
+    Cols = if Columns==[] -> "*"; true -> read_cols_sql(Columns) end,
+    ["SELECT ", Cols, " FROM ", to_iolist(Tbl), " WHERE ",
+     colval_assignments_sql(KVs), ";"].     
 
 %%--------------------------------------------------------------------
 %% @doc Using Key as the column name searches for the record with
 %%      matching Value then deletes that record.
 %% @end
 %%--------------------------------------------------------------------
--spec delete_sql(table_id(), column_id(), sql_value()) -> iolist().
-delete_sql(Tbl, Key, Value) ->
-    ["DELETE FROM ", to_iolist(Tbl), " WHERE ", to_iolist(Key),
-     " = ", value_to_sql(Value), ";"].
+-spec delete_sql(table_id(), [{column_id(), sql_value()}]) -> iolist().
+delete_sql(Tbl, [{_,_}|_]=KeyValue) ->
+    ["DELETE FROM ", to_iolist(Tbl), " WHERE ", 
+     colval_assignments_sql(KeyValue), ";"].
 
 %%--------------------------------------------------------------------
 %% @doc Drop the table Tbl from the database
@@ -425,7 +408,9 @@ to_iolist(L) when is_list(L) ->
 to_iolist(B) when is_binary(B) ->
     B.
 
-
+colval_assignments_sql([{_,_}|_]=L) ->
+    string:join([[to_iolist(K), " = ", value_to_sql(V)] || {K,V} <- L],
+                " and ").
 
 %%--------------------------------------------------------------------
 %% @type sql_value() = number() | 'null' | iodata().
@@ -478,7 +463,7 @@ create_table_sql_test() ->
 update_sql_test() ->
     ?assertFlat(
         "UPDATE user SET name = 'a' WHERE id = 1;",
-        update_sql(user, id, 1, [{name, "a"}])).
+        update_sql(user, [{id, 1}], [{name, "a"}])).
 
 write_sql_test() ->
     ?assertFlat(
@@ -494,15 +479,15 @@ read_sql_test() ->
         read_sql(user, [id, name])),
     ?assertFlat(
         "SELECT * FROM user WHERE id = 1;",
-        read_sql(user, id, 1)),
+        read_sql(user, [{id, 1}])),
     ?assertFlat(
         "SELECT id, name FROM user WHERE id = 1;",
-        read_sql(user, <<"id">>, 1, [id, "name"])).
+        read_sql(user, [{<<"id">>, 1}], [id, "name"])).
 
 delete_sql_test() ->
     ?assertFlat(
         "DELETE FROM user WHERE id = 1;",
-        delete_sql(user, "id", 1)).
+        delete_sql(user, [{"id", 1}])).
 
 drop_table_sql_test() ->
     ?assertFlat(
