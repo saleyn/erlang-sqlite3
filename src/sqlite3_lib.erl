@@ -262,7 +262,9 @@ read_sql(Tbl) ->
 %%    Returns only specified Columns of all records from table Tbl.
 %% @end
 %%--------------------------------------------------------------------
--spec read_sql(table_id(), [column_id()]) -> iolist().
+-spec read_sql(table_id(), all|[column_id()]) -> iolist().
+read_sql(Tbl, all) ->
+    read_sql(Tbl, []);
 read_sql(Tbl, [C|_] = Columns) when is_atom(C); is_list(C); is_binary(C) ->
     ["SELECT ", read_cols_sql(Columns), " FROM ", to_iolist(Tbl), ";"].
 
@@ -271,9 +273,9 @@ read_sql(Tbl, [C|_] = Columns) when is_atom(C); is_list(C); is_binary(C) ->
 %%      matching Value.
 %% @end
 %%--------------------------------------------------------------------
-%-spec read_sql(table_id(), [{column_id(), sql_value()}], [Column_id()]) -> iolist().
+%-spec read_sql(table_id(), [{column_id(), sql_value()}], all|[Column_id()]) -> iolist().
 read_sql(Tbl, [{_,_}|_]=KVs, Columns) ->
-    Cols = if Columns==[] -> "*"; true -> read_cols_sql(Columns) end,
+    Cols = if Columns==[]; Columns == all -> "*"; true -> read_cols_sql(Columns) end,
     ["SELECT ", Cols, " FROM ", to_iolist(Tbl), " WHERE ",
      colval_assignments_sql(KVs), ";"].     
 

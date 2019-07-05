@@ -619,6 +619,8 @@ read_all_timeout(Db, Tbl, Timeout) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec read_all(db(), table_id(), [column_id()]) -> sql_result().
+read_all(Db, Tbl, all) ->
+    gen_server:call(Db, {read, Tbl, all});
 read_all(Db, Tbl, [C|_] = Columns) when is_atom(C); is_list(C); is_binary(C) ->
     gen_server:call(Db, {read, Tbl, Columns}).
 
@@ -627,7 +629,7 @@ read_all(Db, Tbl, [C|_] = Columns) when is_atom(C); is_list(C); is_binary(C) ->
 %%   Reads Columns in all rows from Table in Db.
 %% @end
 %%--------------------------------------------------------------------
--spec read_all_timeout(db(), table_id(), [column_id()], timeout()) -> sql_result().
+-spec read_all_timeout(db(), table_id(), all|[column_id()], timeout()) -> sql_result().
 read_all_timeout(Db, Tbl, Columns, Timeout) ->
     gen_server:call(Db, {read, Tbl, Columns}, Timeout).
 
@@ -667,7 +669,7 @@ read(Db, Tbl, [{_C,_V}|_]=CV) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec read(db(), table_id(), {column_id(), sql_value()}|
-                            [{column_id(), sql_value()}], [column_id()]) ->
+                            [{column_id(), sql_value()}], all|[column_id()]) ->
         sql_result().
 read(Db, Tbl, {_Key, _Value} = KV, Columns) ->
     read(Db, Tbl, [KV], Columns);
@@ -697,7 +699,8 @@ read_timeout(Db, Tbl, [{_C,_V}|_]=CV, Timeout) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec read_timeout(db(), table_id(), {column_id(), sql_value()}|
-                                    [{column_id(), sql_value()}], [column_id()], timeout()) ->
+                                    [{column_id(), sql_value()}],
+                   all|[column_id()], timeout()) ->
         sql_result().
 read_timeout(Db, Tbl, {_Col, _Value}=CV, Columns, Timeout) ->
     gen_server:call(Db, {read, Tbl, [CV], Columns}, Timeout);
