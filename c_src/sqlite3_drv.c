@@ -17,6 +17,16 @@ FILE* __cdecl __iob_func(void) {
   }
   return _iob;
 }
+
+#ifdef DRIVER_SFX
+#define __Q(sfx) #sfx
+#define QUOTE(sfx) __Q(sfx)
+
+#define ADD_SUFFIX(name) name ## QUOTE(DRIVER_SFX)
+#else
+#define ADD_SUFFIX(name) name
+#endif
+
 #endif
 
 #ifdef DEBUG
@@ -205,7 +215,11 @@ static ErlDrvEntry sqlite3_driver_entry = {
   NULL, /* output */
   NULL, /* ready_input */
   NULL, /* ready_output */
+  #ifdef _WIN32
+  ADD_SUFFIX("sqlite3_drv"), /* the name of the driver */
+  #else
   "sqlite3_drv"DRIVER_SFX, /* the name of the driver */
+  #endif
   NULL, /* finish */
   NULL, /* handle */
   control, /* control */
@@ -292,14 +306,16 @@ static ErlDrvData start(ErlDrvPort port, char* cmd) {
   drv->prepared_count = 0;
   drv->prepared_alloc = 0;
 
-  drv->atom_blob = driver_mk_atom("blob");
-  drv->atom_error = driver_mk_atom("error");
-  drv->atom_columns = driver_mk_atom("columns");
-  drv->atom_rows = driver_mk_atom("rows");
-  drv->atom_null = driver_mk_atom("null");
-  drv->atom_rowid = driver_mk_atom("rowid");
-  drv->atom_ok = driver_mk_atom("ok");
-  drv->atom_done = driver_mk_atom("done");
+  drv->atom_blob        = driver_mk_atom("blob");
+  drv->atom_error       = driver_mk_atom("error");
+  drv->atom_columns     = driver_mk_atom("columns");
+  drv->atom_rows        = driver_mk_atom("rows");
+  drv->atom_null        = driver_mk_atom("null");
+  drv->atom_rowid       = driver_mk_atom("rowid");
+  drv->atom_ok          = driver_mk_atom("ok");
+  drv->atom_done        = driver_mk_atom("done");
+  drv->atom_true        = driver_mk_atom("true");
+  drv->atom_false       = driver_mk_atom("false");
   drv->atom_unknown_cmd = driver_mk_atom("unknown_command");
 
   if (status != SQLITE_OK) {
@@ -387,6 +403,9 @@ static ErlDrvSSizeT control(
     case CMD_FILENAME:
       filename(drv, buf, (int) len);
       break;
+    case CMD_TABLE_EXISTS:
+      table_exists(drv, buf, (int) len);
+      break;
     default:
       unknown(drv, buf, (int) len);
     }
@@ -432,6 +451,37 @@ static int filename(sqlite3_drv_t *drv, char *buf, int len) {
     erl_drv_output_term(spec[1],
     #endif
     spec, sizeof(spec) / sizeof(spec[0]));
+}
+
+static int table_exists(sqlite3_drv_t *drv, char *buf, int len) {
+    sqlite3_stmt* stmt;
+    char          sql[256];
+    LOG_DEBUG("Driver table_exists: %s\n", buf);
+    snprintf(sql, sizeof(sql), "select name from sqlite_master where type='table' and name='%s' limit 1", buf);
+
+    int res = sqlite3_prepare_v2(drv->db, sql, sizeof(sql), &stmt, NULL);
+
+    if (res != SQLITE_OK) {
+        output_error(drv, SQLITE_ERROR, "error in sql query");
+        return -1;
+    }
+
+    res = sqlite3_step(stmt);
+    int exists = res == SQLITE_ROW;
+    sqlite3_finalize(stmt);
+
+    ErlDrvTermData spec[] = {
+        ERL_DRV_PORT,  driver_mk_port(drv->port),
+        ERL_DRV_ATOM,  exists ? drv->atom_true : drv->atom_false,
+        ERL_DRV_TUPLE, 2
+    };
+    return
+      #ifdef PRE_R16B
+      driver_output_term(drv->port,
+      #else
+      erl_drv_output_term(spec[1],
+      #endif
+        spec, sizeof(spec) / sizeof(spec[0]));
 }
 
 static int enable_load_extension(sqlite3_drv_t* drv, char *buf, int len) {

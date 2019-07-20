@@ -53,6 +53,7 @@ extern FILE* __cdecl __iob_func(void);
 #define CMD_ENABLE_LOAD_EXTENSION 13
 #define CMD_CHANGES 14
 #define CMD_FILENAME 15
+#define CMD_TABLE_EXISTS 16
 
 typedef struct ptr_list {
   void *head;
@@ -77,6 +78,8 @@ typedef struct sqlite3_drv_t {
   ErlDrvTermData atom_rowid;
   ErlDrvTermData atom_ok;
   ErlDrvTermData atom_done;
+  ErlDrvTermData atom_true;
+  ErlDrvTermData atom_false;
   ErlDrvTermData atom_unknown_cmd;
 } sqlite3_drv_t;
 
@@ -124,6 +127,7 @@ static int unknown(sqlite3_drv_t *bdb_drv, char *buf, int len);
 static int enable_load_extension(sqlite3_drv_t *drv, char *buf, int len);
 static int changes(sqlite3_drv_t *drv, char *buf, int len);
 static int filename(sqlite3_drv_t *drv, char *buf, int len);
+static int table_exists(sqlite3_drv_t *drv, char *buf, int len);
 
 #if defined(_MSC_VER)
 #pragma warning(default: 4201)

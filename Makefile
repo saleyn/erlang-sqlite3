@@ -1,6 +1,6 @@
 REBAR=rebar
-REBAR_COMPILE=$(REBAR) get-deps compile
 PLT=dialyzer\sqlite3.plt
+REBAR_COMPILE=$(REBAR) get-deps compile
 
 all: compile
 

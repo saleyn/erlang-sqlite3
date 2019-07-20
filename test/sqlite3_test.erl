@@ -55,7 +55,8 @@ all_test_() ->
       ?FuncTest(issue23),
       ?FuncTest(issue13),
       ?FuncTest(enable_load_extension),
-      ?FuncTest(changes)]}.
+      ?FuncTest(changes),
+      ?FuncTest(table_exists)]}.
 
 anonymous_test() ->
     {ok, Pid} = sqlite3:open(anonymous, []),
@@ -359,18 +360,23 @@ enable_load_extension() ->
     ?assertEqual(ok, sqlite3:enable_load_extension(ct, 1)).
 
 changes() ->
-    sqlite3:open(changes, [in_memory]),
-    sqlite3:sql_exec(changes, "CREATE TABLE person(id INTEGER);"),
-    ?assertEqual(0, sqlite3:changes(changes)),
-    {rowid, _} = sqlite3:sql_exec(changes, "INSERT INTO person (id) VALUES (1)"),
-    {rowid, _} = sqlite3:sql_exec(changes, "INSERT INTO person (id) VALUES (2)"),
-    {rowid, _} = sqlite3:sql_exec(changes, "INSERT INTO person (id) VALUES (3)"),
-    {rowid, _} = sqlite3:sql_exec(changes, "INSERT INTO person (id) VALUES (4)"),
-    {rowid, _} = sqlite3:sql_exec(changes, "INSERT INTO person (id) VALUES (5)"),
-    ?assertEqual(1, sqlite3:changes(changes)),
-    ok = sqlite3:sql_exec(changes, "UPDATE person SET id = 10"),
-    ?assertEqual(5, sqlite3:changes(changes)),
-    sqlite3:close(changes).
+    ?assertEqual(1, sqlite3:changes(ct)),
+    sqlite3:sql_exec(ct, "CREATE TABLE person(id INTEGER);"),
+    ?assertEqual(1, sqlite3:changes(ct)),
+    {rowid, _} = sqlite3:sql_exec(ct, "INSERT INTO person (id) VALUES (1)"),
+    {rowid, _} = sqlite3:sql_exec(ct, "INSERT INTO person (id) VALUES (2)"),
+    {rowid, _} = sqlite3:sql_exec(ct, "INSERT INTO person (id) VALUES (3)"),
+    {rowid, _} = sqlite3:sql_exec(ct, "INSERT INTO person (id) VALUES (4)"),
+    {rowid, _} = sqlite3:sql_exec(ct, "INSERT INTO person (id) VALUES (5)"),
+    ?assertEqual(1, sqlite3:changes(ct)),
+    ok = sqlite3:sql_exec(ct, "UPDATE person SET id = 10"),
+    ?assertEqual(5,  sqlite3:changes(ct)),
+    ?assertEqual(ok, sqlite3:drop_table(ct, person)).
+
+table_exists() ->
+    ?assertNot(sqlite3:table_exists(ct, table1)),
+    ok = sqlite3:create_table(ct, table1, [{foo, integer}]),
+    ?assert(sqlite3:table_exists(ct, table1)).
 
 issue23() ->
     sqlite3:open(issue23, [in_memory]),

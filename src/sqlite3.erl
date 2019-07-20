@@ -31,6 +31,7 @@
          create_table_timeout/5]).
 -export([add_columns/2, add_columns/3]).
 -export([list_tables/0, list_tables/1, list_tables_timeout/2,
+         table_exists/1, table_exists/2, table_exists/3,
          table_info/1, table_info/2, table_info_timeout/3, describe_table/2]).
 -export([write/2, write/3, write_timeout/4, write_many/2, write_many/3,
          write_many_timeout/4]).
@@ -464,6 +465,30 @@ list_tables(Db) ->
 -spec list_tables_timeout(db(), timeout()) -> [table_id()].
 list_tables_timeout(Db, Timeout) ->
     gen_server:call(Db, list_tables, Timeout).
+
+%%--------------------------------------------------------------------
+%% @doc
+%%    Returns true if table `Tbl' exists.
+%% @end
+%%--------------------------------------------------------------------
+-spec table_exists(table_id()) -> boolean().
+table_exists(Tbl) ->
+    table_exists(?MODULE, Tbl).
+
+%%--------------------------------------------------------------------
+%% @doc
+%%    Returns true if table `Tbl' exists in `Db'.
+%% @end
+%%--------------------------------------------------------------------
+-spec table_exists(db(), table_id()) -> boolean().
+table_exists(Db, Tbl) when is_atom(Db), is_atom(Tbl) ->
+    table_exists(Db, atom_to_list(Tbl));
+table_exists(Db, Tbl) when is_atom(Db), is_list(Tbl) ->
+    table_exists(Db, Tbl, infinity).
+
+-spec table_exists(db(), table_id(), timeout()) -> boolean().
+table_exists(Db, Tbl, Timeout) when is_atom(Db), is_list(Tbl) ->
+    gen_server:call(Db, {table_exists, Tbl}, Timeout).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -928,9 +953,16 @@ handle_call(list_tables, _From, State) ->
         {error, _Code, Reason} ->
             {reply, {error, Reason}, State}
     end;
+handle_call({table_exists, _Tbl}=Cmd, _From, #state{port = Port} = State) ->
+    case exec(Port, Cmd) of
+        Result when is_boolean(Result)->
+            {reply, Result, State};
+        {error, _Code, Reason} ->
+            {reply, {error, Reason}, State}
+    end;
 handle_call({table_info, Tbl}, _From, State) when is_atom(Tbl) ->
     % make sure we only get table info.
-    SQL = io_lib:format("select sql from sqlite_master where tbl_name = '~p' and type='table';", [Tbl]),
+    SQL = io_lib:format("select sql from sqlite_master where tbl_name = '~s' and type='table';", [to_list(Tbl)]),
     case do_sql_exec(SQL, State) of
         Data when is_list(Data)->
             TableSql = proplists:get_value(rows, Data),
@@ -1173,20 +1205,33 @@ get_priv_dir() ->
             Dir
     end.
 
--define(SQL_EXEC_COMMAND, 2).
--define(SQL_CREATE_FUNCTION, 3).
+driver_name() ->
+    Target = case os:type() of
+                {win32, _}   -> ".win";
+                {unix,linux} -> ".linux";
+                _            -> ""
+              end,
+    Arch   = case erlang:system_info(wordsize) of
+                4 -> ".x86";
+                _ -> ".x64"
+             end,
+    atom_to_list(?DRIVER_NAME) ++ Target ++ Arch.
+
+-define(SQL_EXEC_COMMAND,          2).
+-define(SQL_CREATE_FUNCTION,       3).
 -define(SQL_BIND_AND_EXEC_COMMAND, 4).
--define(PREPARE, 5).
--define(PREPARED_BIND, 6).
--define(PREPARED_STEP, 7).
--define(PREPARED_RESET, 8).
--define(PREPARED_CLEAR_BINDINGS, 9).
--define(PREPARED_FINALIZE, 10).
--define(PREPARED_COLUMNS, 11).
--define(SQL_EXEC_SCRIPT, 12).
--define(ENABLE_LOAD_EXTENSION, 13).
--define(CHANGES, 14).
--define(DB_FILENAME, 15).
+-define(PREPARE,                   5).
+-define(PREPARED_BIND,             6).
+-define(PREPARED_STEP,             7).
+-define(PREPARED_RESET,            8).
+-define(PREPARED_CLEAR_BINDINGS,   9).
+-define(PREPARED_FINALIZE,        10).
+-define(PREPARED_COLUMNS,         11).
+-define(SQL_EXEC_SCRIPT,          12).
+-define(ENABLE_LOAD_EXTENSION,    13).
+-define(CHANGES,                  14).
+-define(DB_FILENAME,              15).
+-define(TABLE_EXISTS,             16).
 
 create_port_cmd(DbFile) ->
     driver_name() ++ " " ++ DbFile.
@@ -1241,6 +1286,9 @@ exec(Port, {enable_load_extension, Value}) ->
     wait_result(Port);
 exec(Port, changes) ->
     port_control(Port, ?CHANGES, <<"">>),
+    wait_result(Port);
+exec(Port, {table_exists, Tbl}) ->
+    port_control(Port, ?TABLE_EXISTS, Tbl),
     wait_result(Port);
 exec(Port, filename) ->
     port_control(Port, ?DB_FILENAME, <<"">>),
@@ -1352,13 +1400,6 @@ match(Row, [{Re, Fun}|T], Cols) ->
             match(Row, T, Cols)
     end.
 
-% build_table_info([], Acc) ->
-%     lists:reverse(Acc);
-% build_table_info([[ColName, ColType] | Tl], Acc) ->
-%     build_table_info(Tl, [{list_to_atom(ColName), sqlite3_lib:col_type_to_atom(ColType)}| Acc]);
-% build_table_info([[ColName, ColType | Constraints] | Tl], Acc) ->
-%     build_table_info(Tl, [{list_to_atom(ColName), sqlite3_lib:col_type_to_atom(ColType), build_constraints(Constraints)} | Acc]).
-
 null("NOT NULL") -> [not_null];
 null("not null") -> [not_null];
 null(_)          -> [].
@@ -1374,10 +1415,6 @@ build_constraints([Primary, Key | Tail]) when Primary=="PRIMARY", Key=="KEY"
     [Constraint | build_constraints(Rest)];
 build_constraints([Unique | Tail]) when Unique=="UNIQUE"; Unique=="unique"->
     [unique | build_constraints(Tail)];
-%build_constraints(["NOT", "NULL" | Tail]) ->
-%    [not_null | build_constraints(Tail)];
-%build_constraints(["NULL" | Tail]) ->
-%    [null | build_constraints(Tail)];
 build_constraints([Default, DefaultValue | Tail]) when Default=="DEFAULT"; Default=="default" ->
     case re:run(DefaultValue, "^\\((.*)\\)$", [{capture, all, list}]) of
         {match, [_, Value]} ->
@@ -1385,9 +1422,6 @@ build_constraints([Default, DefaultValue | Tail]) when Default=="DEFAULT"; Defau
         nomatch ->
             [{default, sqlite3_lib:sql_to_value(DefaultValue)} | build_constraints(Tail)]
     end;
-% build_constraints(["CHECK", _ | Tail]) ->
-%     build_constraints(Tail);
-% build_constraints(["REFERENCES", Check | Tail]) -> ...
 build_constraints(UnknownConstraints) ->
     io:format("Constraints: ~p\n", [UnknownConstraints]),
     [{cant_parse_constraints, string:join(UnknownConstraints, " ")}].
@@ -1418,18 +1452,10 @@ cast_table_name(Bin, SQL) ->
         binary_to_atom(Bin, latin1)
     end.
 
-driver_name() ->
-    Sfx =
-        case erlang:system_info(system_architecture) of
-            "win32" ->
-                case os:getenv("PROCESSOR_ARCHITECTURE") of
-                    "x86" -> "_x86";
-                    _     -> "_x64"
-                end;
-            "x86_64" ++ _ -> "_x64";
-            _             -> "_x86"
-        end,
-    atom_to_list(?DRIVER_NAME) ++ Sfx.
+to_list(V) when is_list(V)   -> V;
+to_list(V) when is_binary(V) -> binary_to_list(V);
+to_list(V) when is_atom(V)   -> atom_to_list(V);
+to_list(V)                   -> io_lib:format("~p", [V]).
 
 %% conflict_clause(["ON", "CONFLICT", ResolutionString | Tail]) ->
 %%     Resolution = case ResolutionString of
