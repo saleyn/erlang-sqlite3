@@ -18,15 +18,6 @@ FILE* __cdecl __iob_func(void) {
   return _iob;
 }
 
-#ifdef DRIVER_SFX
-#define __Q(sfx) #sfx
-#define QUOTE(sfx) __Q(sfx)
-
-#define ADD_SUFFIX(name) name ## QUOTE(DRIVER_SFX)
-#else
-#define ADD_SUFFIX(name) name
-#endif
-
 #endif
 
 #ifdef DEBUG
@@ -215,11 +206,7 @@ static ErlDrvEntry sqlite3_driver_entry = {
   NULL, /* output */
   NULL, /* ready_input */
   NULL, /* ready_output */
-  #ifdef _WIN32
-  ADD_SUFFIX("sqlite3_drv"), /* the name of the driver */
-  #else
   "sqlite3_drv"DRIVER_SFX, /* the name of the driver */
-  #endif
   NULL, /* finish */
   NULL, /* handle */
   control, /* control */

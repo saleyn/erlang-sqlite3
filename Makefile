@@ -25,6 +25,7 @@ clean:
 	if exist dialyzer del /Q dialyzer
 	if exist sqlite3.* del /Q sqlite3.*
 	if exist *.pdb del /Q *.pdb
+	if exist *.i del /Q *.i
 
 docs: compile
 	rebar doc
