@@ -67,6 +67,7 @@ typedef struct sqlite3_drv_t {
   struct sqlite3 *db;
   char* db_name;
   FILE *log;
+  int debug;
   sqlite3_stmt **prepared_stmts;
   unsigned int prepared_count;
   unsigned int prepared_alloc;

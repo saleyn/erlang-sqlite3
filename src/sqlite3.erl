@@ -98,39 +98,50 @@ open(DbName) ->
 
 %%--------------------------------------------------------------------
 %% @spec open(DbName :: atom(), Options :: [option()]) -> {ok, Pid :: pid()} | ignore | {error, Error}
-%% @type option() = {file, DbFile :: string()} | in_memory | temporary
+%% @type option() = {file, DbFile :: string()}
+%%                | in_memory | temporary | shared_cache
 %%
 %% @doc
 %%   Opens a sqlite3 database creating one if necessary. By default the database
-%%   will be called DbName.db in the current path (unless Db is 'anonymous', see below).
-%%   This can be changed by passing the option {file, DbFile :: string()}. DbFile
+%%   will be called `DbName.db' in the current path (unless Db is `anonymous', see below).
+%%   This can be changed by passing the option `{file, DbFile::string()}'. DbFile
 %%   must be the full path to the sqlite3 db file. Can be used to open multiple sqlite3
-%%   databases per node. Must be use in conjunction with stop/1, sql_exec/2,
-%%   create_table/3, list_tables/1, table_info/2, write/3, read/3, delete/3
-%%   and drop_table/2. If the name is an atom other than 'anonymous', it's used for
-%%   registering the gen_server and must be unique. If the name is 'anonymous',
+%%   databases per node. Must be use in conjunction with `stop/1', `sql_exec/2',
+%%   `create_table/3', `list_tables/1', `table_info/2', `write/3', `read/3', `delete/3'
+%%   and `drop_table/2'. If the name is an atom other than `anonymous', it's used for
+%%   registering the gen_server and must be unique. If the name is `anonymous',
 %%   the process isn't registered.
+%%
+%%   Options:
+%%   <dl>
+%%     <dt>{file, DbFile::string()}</dt><dd>Database filename</dd>
+%%     <dt>in_memory</dt><dd>Create in-memory database</dd>
+%%     <dt>temporary</dt><dd>Create temp database without a filename</dd>
+%%     <dt>shared_cache</dt><dd>Enabled shared cache (see
+%%          https://www.sqlite.org/c3ref/enable_shared_cache.html)</dd>
+%%   </dl>
 %% @end
 %%--------------------------------------------------------------------
 -spec open(atom(), [option()]) -> result().
 open(DbName, Options) ->
-    IsAnonymous = DbName =:= anonymous,
-    Opts = case proplists:lookup(file, Options) of
+    IsAnonymous    = DbName =:= anonymous,
+    {Opts1, Opts2} = lists:partition(fun(I) -> lists:member(I,[in_memory, temporary]) end, Options),
+    Opts = case proplists:lookup(file, Opts2) of
                none ->
-                   DbFile = case proplists:is_defined(in_memory, Options) of
+                   DbFile = case proplists:is_defined(in_memory, Opts1) of
                                 true ->
                                     ":memory:";
                                 false ->
-                                    case IsAnonymous orelse proplists:is_defined(temporary, Options) of
+                                    case IsAnonymous orelse proplists:is_defined(temporary, Opts1) of
                                         true ->
                                             "";
                                         false ->
                                             "./" ++ atom_to_list(DbName) ++ ".db"
                                     end
                             end,
-                   [{file, DbFile} | Options];
+                   [{file, DbFile} | Opts2];
                {file, _} ->
-                   Options
+                   Opts2
            end,
     if
         IsAnonymous -> gen_server:start_link(?MODULE, Opts, []);
@@ -908,19 +919,27 @@ init(Options) ->
     Driver  = driver_name(),
     case erl_ddll:load(PrivDir, Driver) of
         ok ->
-            do_init(Options);
+            do_init(Driver, Options);
         {error, permanent} -> %% already loaded!
-            do_init(Options);
+            try
+                do_init(Driver, Options)
+            catch throw:Reason ->
+                {stop, Reason}
+            end;
         {error, Error} ->
             Msg = io_lib:format("Error loading ~s: ~s",
                                 [Driver, erl_ddll:format_error(Error)]),
             {stop, lists:flatten(Msg)}
     end.
 
--spec do_init([any()]) -> {'ok', #state{}} | {'stop', string()}.
-do_init(Options) ->
-    DbFile = proplists:get_value(file, Options),
-    Port = open_port({spawn, create_port_cmd(DbFile)}, [binary]),
+-spec do_init(string(), [any()]) -> {'ok', #state{}} | {'stop', string()}.
+do_init(DriverName, Options) ->
+    {DbFile, Opts} =
+        case lists:keytake(file, 1, Options) of
+            {value, {file, F}, Rest} -> {F,  Rest};
+            false                    -> {"", Options}
+        end,
+    Port = open_port({spawn, create_port_cmd(DriverName, DbFile, Opts)}, [binary]),
     receive
         {Port, ok} ->
             {ok, #state{port = Port, ops = Options}};
@@ -1233,8 +1252,37 @@ driver_name() ->
 -define(DB_FILENAME,              15).
 -define(TABLE_EXISTS,             16).
 
-create_port_cmd(DbFile) ->
-    driver_name() ++ " " ++ DbFile.
+create_port_cmd(DriverName, DbFile, Options) ->
+    Opts = case [readonly, readwrite] -- Options of
+              [readonly, readwrite] -> [create, readwrite | Options];
+              _                     -> Options
+           end,
+    DriverName ++ " " ++ DbFile ++ lists:append(opts(Opts)).
+
+%% Custom option
+opts([debug           | T]) -> [" -d"             | opts(T)];
+%% sqlite3_open_v2() options
+opts([readonly        | T]) -> [" -ro"            | opts(T)];
+opts([readwrite       | T]) -> [" -rw"            | opts(T)];
+opts([create          | T]) -> [" -create"        | opts(T)];
+opts([delete_on_close | T]) -> [" -doc"           | opts(T)];
+opts([exclusive       | T]) -> [" -exclusive"     | opts(T)];
+opts([auto_proxy      | T]) -> [" -auto-proxy"    | opts(T)];
+opts([uri             | T]) -> [" -uri"           | opts(T)];
+opts([memory          | T]) -> [" -m"             | opts(T)];
+opts([main_db         | T]) -> [" -main-db"       | opts(T)];
+opts([temp_db         | T]) -> [" -temp-db"       | opts(T)];
+opts([transient       | T]) -> [" -transient-db"  | opts(T)];
+opts([main_journal    | T]) -> [" -main-journal"  | opts(T)];
+opts([temp_journal    | T]) -> [" -temp-journal"  | opts(T)];
+opts([master_journal  | T]) -> [" -master-journal"| opts(T)];
+opts([no_mutex        | T]) -> [" -no-mutex"      | opts(T)];
+opts([full_mutex      | T]) -> [" -full-mutex"    | opts(T)];
+opts([shared_cache    | T]) -> [" -shared-cache"  | opts(T)];
+opts([wal             | T]) -> [" -wal"           | opts(T)];
+opts([Other           | _]) -> throw({invalid_option, Other});
+opts([]) ->
+    [].
 
 do_handle_call_sql_exec(SQL, State) ->
     Reply = do_sql_exec(SQL, State),

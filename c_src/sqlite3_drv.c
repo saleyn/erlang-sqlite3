@@ -199,6 +199,7 @@ static inline int output_ok(sqlite3_drv_t *drv) {
       spec, sizeof(spec) / sizeof(spec[0]));
 }
 
+
 static ErlDrvEntry sqlite3_driver_entry = {
   NULL, /* init */
   start, /* startup (defined below) */
@@ -243,6 +244,82 @@ static ErlDrvData start(ErlDrvPort port, char* cmd) {
   char *db_name = strstr(cmd, " ");
   size_t db_name_len;
   char *db_name_copy;
+  int  flags = 0;
+  char *str_flags = "";
+
+  drv->debug = 0;
+
+  // Parse other options
+  if (db_name) {
+    char* begin  = db_name+1;
+    char* end;
+    char  end_ch = ' ';
+
+    if (*begin == '"') { ++begin; end_ch='"'; }
+    for(end=begin; *end && (*end != end_ch || *end == '\\'); ++end);
+    char* p = end;
+    if (*end) {
+      while(*p == end_ch || *p == ' ') ++p;
+      *end = '\0';
+    }
+    db_name   = begin;
+    str_flags = p;
+
+    for(char* s = strtok(p, " "); s != NULL; s = strtok(NULL, " ")) {
+      if (!strcmp(s, "-d") || !strcmp(s, "-debug"))
+        drv->debug=1;
+      else if (!strcmp(s, "-sc") || !strcmp(s, "-shared-cache"))
+        flags |= SQLITE_OPEN_SHAREDCACHE;
+      else if (!strcmp(s, "-ro") || !strcmp(s, "-readonly"))
+        flags |= SQLITE_OPEN_READONLY;
+      else if (!strcmp(s, "-rw") || !strcmp(s, "-readwrite"))
+        flags |= SQLITE_OPEN_READWRITE;
+      else if (!strcmp(s, "-create"))
+        flags |= SQLITE_OPEN_CREATE;
+      else if (!strcmp(s, "-doc") || !strcmp(s, "-delete-on-close"))
+        flags |= SQLITE_OPEN_DELETEONCLOSE;
+      else if (!strcmp(s, "-e") || !strcmp(s, "-exclusive"))
+        flags |= SQLITE_OPEN_EXCLUSIVE;
+      else if (!strcmp(s, "-auto-proxy"))
+        flags |= SQLITE_OPEN_AUTOPROXY;
+      else if (!strcmp(s, "-u") || !strcmp(s, "-uri"))
+        flags |= SQLITE_OPEN_URI;
+      else if (!strcmp(s, "-m") || !strcmp(s, "-memory"))
+        flags |= SQLITE_OPEN_MEMORY;
+      else if (!strcmp(s, "-main-db"))
+        flags |= SQLITE_OPEN_MAIN_DB;
+      else if (!strcmp(s, "-temp-db"))
+        flags |= SQLITE_OPEN_TEMP_DB;
+      else if (!strcmp(s, "-transient-db"))
+        flags |= SQLITE_OPEN_TRANSIENT_DB;
+      else if (!strcmp(s, "-main-journal"))
+        flags |= SQLITE_OPEN_MAIN_JOURNAL;
+      else if (!strcmp(s, "-temp-journal"))
+        flags |= SQLITE_OPEN_TEMP_JOURNAL;
+      else if (!strcmp(s, "-sub-journal"))
+        flags |= SQLITE_OPEN_SUBJOURNAL;
+      else if (!strcmp(s, "-master-journal"))
+        flags |= SQLITE_OPEN_MASTER_JOURNAL;
+      else if (!strcmp(s, "-no-mutex"))
+        flags |= SQLITE_OPEN_NOMUTEX;
+      else if (!strcmp(s, "-full-mutex"))
+        flags |= SQLITE_OPEN_FULLMUTEX;
+      else if (!strcmp(s, "-shared-cache"))
+        flags |= SQLITE_OPEN_SHAREDCACHE;
+      else if (!strcmp(s, "-private-cache"))
+        flags |= SQLITE_OPEN_PRIVATECACHE;
+      else if (!strcmp(s, "-wal"))
+        flags |= SQLITE_OPEN_WAL;
+      else {
+        fprintf(stderr, "Error parsing parameter: %s\r\n", s);
+        driver_free(drv);
+        return ERL_DRV_ERROR_BADARG;
+      }
+    }
+  }
+
+  if (drv->debug)
+    fprintf(stderr, "DbName: %s\r\nDbFlags: %x (%s)", db_name, flags, str_flags);
 
 #ifdef DEBUG
   errno_t file_open_errno;
@@ -271,12 +348,10 @@ static ErlDrvData start(ErlDrvPort port, char* cmd) {
   if (!db_name) {
     driver_free(drv);
     return ERL_DRV_ERROR_BADARG;
-  } else {
-    ++db_name; // move to first character after ' '
   }
 
   // Create and open the database
-  status = sqlite3_open(db_name, &db);
+  status = sqlite3_open_v2(db_name, &db, flags, NULL);
 #if defined(_MSC_VER)
 #pragma warning(default: 4306)
 #endif
