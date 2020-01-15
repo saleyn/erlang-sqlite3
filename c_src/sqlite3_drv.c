@@ -256,13 +256,13 @@ static ErlDrvData start(ErlDrvPort port, char* cmd) {
     char  end_ch = ' ';
 
     if (*begin == '"') { ++begin; end_ch='"'; }
+    db_name = begin;
     for(end=begin; *end && (*end != end_ch || *end == '\\'); ++end);
+    char* e = end;
     char* p = end;
-    if (*end) {
+    if (*p)
       while(*p == end_ch || *p == ' ') ++p;
-      *end = '\0';
-    }
-    db_name   = begin;
+    *e = '\0';
     str_flags = p;
 
     for(char* s = strtok(p, " "); s != NULL; s = strtok(NULL, " ")) {
