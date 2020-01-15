@@ -64,7 +64,32 @@
 %%   (creating this file if necessary). This is the same as open/1.
 %% @end
 %%--------------------------------------------------------------------
--type option() :: {file, string()} | temporary | in_memory.
+-type option() :: {file, string()} | temporary | in_memory | debug |
+                  open_db_option().
+
+%% See flags or sqlite3_open_v2()
+%% https://www.sqlite.org/c3ref/open.html
+-type open_db_option() ::
+                  readonly        |
+                  readwrite       |
+                  create          |
+                  delete_on_close |
+                  exclusive       |
+                  auto_proxy      |
+                  uri             |
+                  memory          |
+                  main_db         |
+                  temp_db         |
+                  transient       |
+                  main_journal    |
+                  temp_journal    |
+                  master_journal  |
+                  no_mutex        |
+                  full_mutex      |
+                  shared_cache    |
+                  private_cache   |
+                  wal.
+
 -type result() :: {'ok', pid()} | 'ignore' | {'error', any()}.
 -type db() :: atom() | pid().
 
@@ -1279,6 +1304,7 @@ opts([master_journal  | T]) -> [" -master-journal"| opts(T)];
 opts([no_mutex        | T]) -> [" -no-mutex"      | opts(T)];
 opts([full_mutex      | T]) -> [" -full-mutex"    | opts(T)];
 opts([shared_cache    | T]) -> [" -shared-cache"  | opts(T)];
+opts([private_cache   | T]) -> [" -private-cache" | opts(T)];
 opts([wal             | T]) -> [" -wal"           | opts(T)];
 opts([Other           | _]) -> throw({invalid_option, Other});
 opts([]) ->

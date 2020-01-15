@@ -268,8 +268,6 @@ static ErlDrvData start(ErlDrvPort port, char* cmd) {
     for(char* s = strtok(p, " "); s != NULL; s = strtok(NULL, " ")) {
       if (!strcmp(s, "-d") || !strcmp(s, "-debug"))
         drv->debug=1;
-      else if (!strcmp(s, "-sc") || !strcmp(s, "-shared-cache"))
-        flags |= SQLITE_OPEN_SHAREDCACHE;
       else if (!strcmp(s, "-ro") || !strcmp(s, "-readonly"))
         flags |= SQLITE_OPEN_READONLY;
       else if (!strcmp(s, "-rw") || !strcmp(s, "-readwrite"))
@@ -304,7 +302,7 @@ static ErlDrvData start(ErlDrvPort port, char* cmd) {
         flags |= SQLITE_OPEN_NOMUTEX;
       else if (!strcmp(s, "-full-mutex"))
         flags |= SQLITE_OPEN_FULLMUTEX;
-      else if (!strcmp(s, "-shared-cache"))
+      else if (!strcmp(s, "-sc") || !strcmp(s, "-shared-cache"))
         flags |= SQLITE_OPEN_SHAREDCACHE;
       else if (!strcmp(s, "-private-cache"))
         flags |= SQLITE_OPEN_PRIVATECACHE;
