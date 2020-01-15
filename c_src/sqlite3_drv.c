@@ -265,7 +265,13 @@ static ErlDrvData start(ErlDrvPort port, char* cmd) {
     *e = '\0';
     str_flags = p;
 
+    int   nargs = 0;
+    char* args[30];
+
     for(char* s = strtok(p, " "); s != NULL; s = strtok(NULL, " ")) {
+      // Store argument copy
+      if (nargs < sizeof(args)/sizeof(args[0])) args[nargs++] = s;
+
       if (!strcmp(s, "-d") || !strcmp(s, "-debug"))
         drv->debug=1;
       else if (!strcmp(s, "-ro") || !strcmp(s, "-readonly"))
@@ -314,10 +320,14 @@ static ErlDrvData start(ErlDrvPort port, char* cmd) {
         return ERL_DRV_ERROR_BADARG;
       }
     }
-  }
 
-  if (drv->debug)
-    fprintf(stderr, "DbName: %s\r\nDbFlags: %x (%s)", db_name, flags, str_flags);
+    if (drv->debug) {
+      fprintf(stderr, "DbName: %s\r\nDbFlags: %x (", db_name, flags);
+      for(int i=0; i < nargs; ++i)
+        fprintf(stderr, " %s", args[i]);
+      fprintf(stderr, ")\r\n");
+    }
+  }
 
 #ifdef DEBUG
   errno_t file_open_errno;
