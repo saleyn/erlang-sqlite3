@@ -1,17 +1,16 @@
 REBAR=rebar
-PLT=dialyzer\sqlite3.plt
+PLT=dialyzer/sqlite3.plt
 REBAR_COMPILE=$(REBAR) get-deps compile
 
 all: compile
 
-compile: sqlite3.dll sqlite3.lib
+compile:
 	$(REBAR_COMPILE)
 
-debug: sqlite3.dll sqlite3.lib
+debug:
 	$(REBAR_COMPILE) -C rebar.debug.config
 
-tests: compile sqlite3.dll
-	cp sqlite3.dll priv
+tests: compile
 	rebar skip-deps=true eunit
 
 clean:
@@ -23,7 +22,6 @@ clean:
 	if exist .eunit del /Q .eunit
 	if exist c_src\*.o del /Q c_src\*.o
 	if exist dialyzer del /Q dialyzer
-	if exist sqlite3.* del /Q sqlite3.*
 	if exist *.pdb del /Q *.pdb
 	if exist *.i del /Q *.i
 
@@ -39,8 +37,8 @@ static: compile
 cross_compile: clean
 	$(REBAR_COMPILE) -C rebar.cross_compile.config
 
-sqlite3.dll: sqlite3_amalgamation\sqlite3.c sqlite3_amalgamation\sqlite3.h
-	cl /O2 sqlite3_amalgamation\sqlite3.c /Isqlite3_amalgamation /link /dll /out:sqlite3.dll
+#priv/sqlite3.lib: sqlite3_amalgamation/sqlite3.c sqlite3_amalgamation/sqlite3.h
+#	cl /O2 sqlite3_amalgamation/sqlite3.c /Isqlite3_amalgamation /link /out:priv/sqlite3.lib
 
-sqlite3.lib: sqlite3.dll
-	lib /out:sqlite3.lib sqlite3.obj
+#priv/sqlite3.lib: sqlite3.dll
+#	lib /out:priv/sqlite3.lib priv/sqlite3.obj
