@@ -245,8 +245,8 @@ static ErlDrvData start(ErlDrvPort port, char* cmd) {
   size_t db_name_len;
   char *db_name_copy;
   int  flags = 0;
-
-  drv->debug = 0;
+  
+  memset(drv, 0, sizeof(sqlite3_drv_t));
 
   // Parse other options
   if (db_name) {
@@ -320,10 +320,14 @@ static ErlDrvData start(ErlDrvPort port, char* cmd) {
     }
 
     if (drv->debug) {
-      fprintf(stderr, "DbName: %s\r\nDbFlags: %x (", db_name, flags);
-      for(unsigned i=0; i < nargs; ++i)
-        fprintf(stderr, " %s", args[i]);
-      fprintf(stderr, ")\r\n");
+      fprintf(stderr, "DbName:  %s\r\n"
+                      "DbFlags: %x\r\n", db_name, flags);
+      if (nargs) {
+        fprintf(stderr, "DbArgs: ");
+        for(unsigned i=0; i < nargs; ++i)
+          fprintf(stderr, " %s", args[i]);
+        fprintf(stderr, "\r\n");
+      }
     }
   }
 
@@ -334,8 +338,7 @@ static ErlDrvData start(ErlDrvPort port, char* cmd) {
   file_open_errno = fopen_s(drv->log, log_file, "a+");
   #else
   const char *log_file = tempnam(NULL, "erlang-sqlite3-log-");
-  drv->log =
-    fopen(log_file, "ax");
+  drv->log = fopen(log_file, "ax");
   file_open_errno = errno;
   #endif
   if (file_open_errno) {
@@ -404,22 +407,20 @@ static void stop(ErlDrvData handle) {
   int close_result;
 
   if (drv->prepared_stmts) {
-    for (i = 0; i < drv->prepared_count; i++) {
+    for (i = 0; i < drv->prepared_count; i++)
       sqlite3_finalize(drv->prepared_stmts[i]);
-    }
     driver_free(drv->prepared_stmts);
   }
 
   close_result = sqlite3_close(drv->db);
-  if (close_result != SQLITE_OK) {
+  if (close_result != SQLITE_OK)
     LOG_ERROR("Failed to close DB %s, some resources aren't finalized!", drv->db_name);
-  }
 
-  if (drv->log && (drv->log != stderr)) {
+  if (drv->log && (drv->log != stderr))
     fclose(drv->log);
-  }
 
-  driver_free(drv->db_name);
+  if (drv->db_name)
+    driver_free(drv->db_name);
   driver_free(drv);
 }
 
