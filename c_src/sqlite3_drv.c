@@ -245,7 +245,6 @@ static ErlDrvData start(ErlDrvPort port, char* cmd) {
   size_t db_name_len;
   char *db_name_copy;
   int  flags = 0;
-  char *str_flags = "";
 
   drv->debug = 0;
 
@@ -263,10 +262,9 @@ static ErlDrvData start(ErlDrvPort port, char* cmd) {
     if (*p)
       while(*p == end_ch || *p == ' ') ++p;
     *e = '\0';
-    str_flags = p;
 
-    int   nargs = 0;
-    char* args[30];
+    unsigned nargs = 0;
+    char*    args[30];
 
     for(char* s = strtok(p, " "); s != NULL; s = strtok(NULL, " ")) {
       // Store argument copy
@@ -323,7 +321,7 @@ static ErlDrvData start(ErlDrvPort port, char* cmd) {
 
     if (drv->debug) {
       fprintf(stderr, "DbName: %s\r\nDbFlags: %x (", db_name, flags);
-      for(int i=0; i < nargs; ++i)
+      for(unsigned i=0; i < nargs; ++i)
         fprintf(stderr, " %s", args[i]);
       fprintf(stderr, ")\r\n");
     }
