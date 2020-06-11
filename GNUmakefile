@@ -1,4 +1,4 @@
-REBAR=./rebar
+REBAR=rebar
 REBAR_DEBUG=$(REBAR) -C rebar.debug.config
 REBAR_COMPILE=$(REBAR) get-deps compile
 REBAR_DEBUG_COMPILE=$(REBAR_DEBUG) get-deps compile
